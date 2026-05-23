@@ -24,15 +24,7 @@ A professional, feature-rich, and interactive Sudoku web application. This proje
 * **Logic Engine**: Vanilla JavaScript (ES6+, Recursive Backtracking, Timer cycles, Web Audio API, Canvas particle engine)
 * **Icons**: FontAwesome v6.4.0
 ---
-## 📂 Project Structure
-```text
-sudoku-solver/
-│
-├── index.html     # Page structure, tabs, forms, modals & keypad
-├── style.css      # Custom HSL design tokens, themes, layouts & animations
-├── script.js      # App state, backtracking solver, audio & canvas confetti
-└── README.md      # Project documentation and deployment instructions
-```
+
 ---
 ## 🚀 How to Run Locally
 Since this app is built purely with standard web technologies, there are **no dependencies or build steps** required.
@@ -54,10 +46,4 @@ During **Visual Solve**, the app pauses for a small interval (controlled by the 
 * **Amber/Yellow (`.cell-searching`)** to show active searching.
 * **Green (`.cell-valid-placed`)** to show a valid digit was placed.
 * **Red/Orange (`.cell-backtracked`)** to show the solver hit a dead-end and is backtracking.
----
-## 📈 Portfolio & Resume Ready
-This project is tailored to stand out on a portfolio:
-* **Interactive Design**: Aesthetically beautiful animations, hover feedback, active button states, and live stats.
-* **Under the Hood Complexity**: Combines DOM state management, canvas rendering (confetti), audio synthesis (Web Audio API nodes), and asynchronous algorithms (visualizing recursion).
-* **Code Cleanliness**: The codebase is well-commented and structured logically, making it easy for recruiters to review on GitHub.
 ---
