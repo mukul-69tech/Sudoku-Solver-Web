@@ -1,246 +1,198 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SudokuX — Backtracking Solver</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sudoku Solver - Recursion & Backtracking Visualization</title>
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="A fully interactive, premium Sudoku Solver Web App using Backtracking & Recursion.">
+    <meta name="keywords" content="Sudoku Solver, Backtracking Algorithm, Recursion, CSS Glassmorphism">
+    <meta name="author" content="Portfolio Project">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
- 
-  <!-- Ambient background particles -->
-  <div class="ambient" id="ambient"></div>
- 
-  <!-- Header -->
-  <header class="header">
-    <div class="logo">
-      <span class="logo-icon">⬛</span>
-      <span class="logo-text">SudokuX</span>
-      <span class="logo-tag">Backtracking Engine</span>
+    <div class="app-container">
+        <!-- Header Controls -->
+        <header>
+            <div class="logo-section">
+                <h1>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--accent-color);">
+                        <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z"/>
+                    </svg>
+                    Sudoku Solver
+                </h1>
+                <p>Recursion & Backtracking visualizer</p>
+            </div>
+            
+            <div class="header-controls">
+                <!-- Timer display -->
+                <div class="timer-container" id="timer-display">
+                    <svg class="timer-icon" viewBox="0 0 24 24" width="16" height="16">
+                        <path fill="currentColor" d="M12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z" />
+                    </svg>
+                    <span id="timer-text">00:00</span>
+                </div>
+                
+                <!-- Audio Synth Toggle -->
+                <button class="btn-icon" id="btn-sound-toggle" aria-label="Toggle Sound Effects" title="Toggle Sound">
+                    <svg id="sound-icon-on" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                    </svg>
+                    <svg id="sound-icon-off" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <line x1="23" y1="9" x2="17" y2="15"></line>
+                        <line x1="17" y1="9" x2="23" y2="15"></line>
+                    </svg>
+                </button>
+                
+                <!-- Dark Mode Theme Toggle -->
+                <button class="btn-icon" id="btn-theme-toggle" aria-label="Toggle Light/Dark Theme" title="Toggle Theme">
+                    <svg id="theme-icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: none;">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                    <svg id="theme-icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Layout -->
+        <main class="main-layout">
+            <!-- Sidebar Controls -->
+            <section class="control-sidebar">
+                <div class="control-card">
+                    <div class="control-group">
+                        <label for="difficulty-select">Select Difficulty</label>
+                        <select id="difficulty-select" class="select-input">
+                            <option value="easy">Easy (45 Clues)</option>
+                            <option value="medium" selected>Medium (35 Clues)</option>
+                            <option value="hard">Hard (25 Clues)</option>
+                        </select>
+                    </div>
+
+                    <button class="btn btn-primary" id="btn-generate">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m11.314 11.314l.707.707"/>
+                        </svg>
+                        Generate Puzzle
+                    </button>
+
+                    <div class="switch-container">
+                        <div class="switch-label-desc">
+                            <span class="title">Auto-Check Moves</span>
+                            <span class="desc">Highlight conflicts in real-time</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="toggle-autocheck" checked>
+                            <span class="slider-toggle"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="control-card">
+                    <div class="control-group slider-container">
+                        <label for="speed-slider">Solving Visualization Speed</label>
+                        <input type="range" id="speed-slider" class="slider" min="1" max="100" value="70">
+                        <div class="slider-labels">
+                            <span>Slower</span>
+                            <span id="speed-value">Fast</span>
+                            <span>Faster</span>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-success" id="btn-solve-visual">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                        </svg>
+                        Visualized Solve
+                    </button>
+                    
+                    <button class="btn btn-secondary" id="btn-solve-instant">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M15 4V2m0 12v-2M8 8H6m12 0h-2M13 7.5L18 3m-9 11L4 19m9.5-3.5L18 21M7.5 13L3 18"/>
+                        </svg>
+                        Instant Solve
+                    </button>
+                    
+                    <button class="btn btn-secondary" id="btn-hint">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 18h6m-6 3h6m-9-6a9 9 0 1 1 12 0v1a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3v-1z"/>
+                        </svg>
+                        Get Hint
+                    </button>
+                </div>
+            </section>
+
+            <!-- Sudoku Board & Play Controls -->
+            <section class="board-container">
+                <div class="status-panel" id="status-card">
+                    <span class="status-text" id="status-message">Welcome to Sudoku Solver!</span>
+                    <span class="status-badge info" id="status-badge">Ready</span>
+                </div>
+
+                <div class="sudoku-board" id="sudoku-board-element">
+                    <!-- Javascript generates cells -->
+                </div>
+
+                <div class="action-grid">
+                    <button class="btn btn-secondary" id="btn-reset">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                            <polyline points="3 3 3 8 8 8"/>
+                        </svg>
+                        Reset
+                    </button>
+                    <button class="btn btn-danger" id="btn-clear">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                        Clear
+                    </button>
+                    <button class="btn btn-success" id="btn-check">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        Check
+                    </button>
+                </div>
+
+                <!-- Custom Virtual Numpad -->
+                <div class="numpad" id="board-numpad">
+                    <button class="numpad-btn" data-val="1">1</button>
+                    <button class="numpad-btn" data-val="2">2</button>
+                    <button class="numpad-btn" data-val="3">3</button>
+                    <button class="numpad-btn" data-val="4">4</button>
+                    <button class="numpad-btn" data-val="5">5</button>
+                    <button class="numpad-btn" data-val="6">6</button>
+                    <button class="numpad-btn" data-val="7">7</button>
+                    <button class="numpad-btn" data-val="8">8</button>
+                    <button class="numpad-btn" data-val="9">9</button>
+                    <button class="numpad-btn erase-btn" id="numpad-erase">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Inspired by console C++ Sudoku Solvers. Solved using <strong>Recursive Backtracking Algorithm</strong>.</p>
+            <p style="margin-top: 0.25rem;">Use keyboard arrows & numbers 1-9 to navigate and play, or Backspace/Delete to erase.</p>
+        </footer>
     </div>
-    <div class="header-controls">
-      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
-        <span class="theme-icon">☀️</span>
-      </button>
-    </div>
-  </header>
- 
-  <!-- Main App -->
-  <main class="app">
- 
-    <!-- Left Panel: Controls -->
-    <aside class="panel panel-left">
- 
-      <div class="section">
-        <h3 class="section-title">Difficulty</h3>
-        <div class="difficulty-group">
-          <button class="diff-btn active" data-diff="easy">Easy</button>
-          <button class="diff-btn" data-diff="medium">Medium</button>
-          <button class="diff-btn" data-diff="hard">Hard</button>
-        </div>
-      </div>
- 
-      <div class="section">
-        <h3 class="section-title">Timer</h3>
-        <div class="timer-display" id="timerDisplay">00:00</div>
-        <div class="timer-controls">
-          <button class="btn-small" id="timerStartBtn">▶ Start</button>
-          <button class="btn-small" id="timerResetBtn">↺ Reset</button>
-        </div>
-      </div>
- 
-      <div class="section">
-        <h3 class="section-title">Actions</h3>
-        <div class="action-group">
-          <button class="action-btn primary" id="generateBtn">
-            <span class="btn-icon">⚡</span> Generate
-          </button>
-          <button class="action-btn success" id="solveBtn">
-            <span class="btn-icon">🧠</span> Solve
-          </button>
-          <button class="action-btn accent" id="hintBtn">
-            <span class="btn-icon">💡</span> Hint
-          </button>
-          <button class="action-btn warning" id="checkBtn">
-            <span class="btn-icon">✓</span> Check
-          </button>
-          <button class="action-btn danger" id="resetBtn">
-            <span class="btn-icon">✕</span> Clear
-          </button>
-        </div>
-      </div>
- 
-      <div class="section">
-        <h3 class="section-title">Sound</h3>
-        <label class="toggle-switch">
-          <input type="checkbox" id="soundToggle" checked />
-          <span class="toggle-slider"></span>
-          <span class="toggle-label">Sound Effects</span>
-        </label>
-      </div>
- 
-      <div class="section">
-        <h3 class="section-title">Visualize</h3>
-        <label class="toggle-switch">
-          <input type="checkbox" id="visualToggle" checked />
-          <span class="toggle-slider"></span>
-          <span class="toggle-label">Animate Solver</span>
-        </label>
-        <div class="speed-control">
-          <label class="speed-label">Speed</label>
-          <input type="range" id="speedSlider" min="1" max="5" value="3" class="speed-slider" />
-          <span id="speedLabel">3×</span>
-        </div>
-      </div>
- 
-    </aside>
- 
-    <!-- Center: Board -->
-    <section class="board-section">
-      <div class="board-wrapper">
-        <div class="board-glow"></div>
-        <div class="sudoku-board" id="sudokuBoard"></div>
-      </div>
- 
-      <!-- Number Pad -->
-      <div class="numpad" id="numpad">
-        <button class="num-btn" data-num="1">1</button>
-        <button class="num-btn" data-num="2">2</button>
-        <button class="num-btn" data-num="3">3</button>
-        <button class="num-btn" data-num="4">4</button>
-        <button class="num-btn" data-num="5">5</button>
-        <button class="num-btn" data-num="6">6</button>
-        <button class="num-btn" data-num="7">7</button>
-        <button class="num-btn" data-num="8">8</button>
-        <button class="num-btn" data-num="9">9</button>
-        <button class="num-btn erase-btn" data-num="0">⌫</button>
-      </div>
- 
-      <!-- Status Bar -->
-      <div class="status-bar">
-        <div class="status-message" id="statusMessage">Select a difficulty and generate a puzzle!</div>
-        <div class="status-stats">
-          <span class="stat">Hints: <b id="hintsLeft">3</b></span>
-          <span class="stat">Errors: <b id="errorCount">0</b></span>
-        </div>
-      </div>
-    </section>
- 
-    <!-- Right Panel: Stats & Legend -->
-    <aside class="panel panel-right">
- 
-      <div class="section">
-        <h3 class="section-title">Algorithm</h3>
-        <div class="algo-info">
-          <div class="algo-step">
-            <span class="step-num">01</span>
-            <span class="step-text">Find empty cell</span>
-          </div>
-          <div class="algo-step">
-            <span class="step-num">02</span>
-            <span class="step-text">Try digits 1–9</span>
-          </div>
-          <div class="algo-step">
-            <span class="step-num">03</span>
-            <span class="step-text">Validate row/col/box</span>
-          </div>
-          <div class="algo-step">
-            <span class="step-num">04</span>
-            <span class="step-text">Recurse forward</span>
-          </div>
-          <div class="algo-step">
-            <span class="step-num">05</span>
-            <span class="step-text">Backtrack if stuck</span>
-          </div>
-        </div>
-      </div>
- 
-      <div class="section">
-        <h3 class="section-title">Legend</h3>
-        <div class="legend">
-          <div class="legend-item">
-            <span class="legend-dot given"></span> Given clue
-          </div>
-          <div class="legend-item">
-            <span class="legend-dot user"></span> Your input
-          </div>
-          <div class="legend-item">
-            <span class="legend-dot solving"></span> Solving...
-          </div>
-          <div class="legend-item">
-            <span class="legend-dot error"></span> Conflict
-          </div>
-          <div class="legend-item">
-            <span class="legend-dot hint"></span> Hint cell
-          </div>
-        </div>
-      </div>
- 
-      <div class="section">
-        <h3 class="section-title">Session Stats</h3>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <span class="stat-val" id="statSolved">0</span>
-            <span class="stat-lbl">Solved</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-val" id="statBest">—</span>
-            <span class="stat-lbl">Best Time</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-val" id="statHints">0</span>
-            <span class="stat-lbl">Hints Used</span>
-          </div>
-          <div class="stat-card">
-            <span class="stat-val" id="statErrors">0</span>
-            <span class="stat-lbl">Total Errors</span>
-          </div>
-        </div>
-      </div>
- 
-    </aside>
-  </main>
- 
-  <!-- Win Modal -->
-  <div class="modal-overlay" id="winModal">
-    <div class="modal win-modal">
-      <div class="win-confetti" id="confetti"></div>
-      <div class="win-icon">🏆</div>
-      <h2 class="win-title">Puzzle Solved!</h2>
-      <p class="win-subtitle">Excellent work, solver!</p>
-      <div class="win-stats">
-        <div class="win-stat">
-          <span class="win-stat-val" id="winTime">—</span>
-          <span class="win-stat-lbl">Time</span>
-        </div>
-        <div class="win-stat">
-          <span class="win-stat-val" id="winHints">—</span>
-          <span class="win-stat-lbl">Hints Used</span>
-        </div>
-        <div class="win-stat">
-          <span class="win-stat-val" id="winErrors">—</span>
-          <span class="win-stat-lbl">Errors</span>
-        </div>
-      </div>
-      <button class="btn-modal" id="winNewGame">New Game</button>
-    </div>
-  </div>
- 
-  <!-- Error Modal -->
-  <div class="modal-overlay" id="errorModal">
-    <div class="modal error-modal">
-      <div class="error-icon">⚠️</div>
-      <h2 class="modal-title" id="errorTitle">Oops!</h2>
-      <p class="modal-body" id="errorBody">Something went wrong.</p>
-      <button class="btn-modal" id="errorClose">Got it</button>
-    </div>
-  </div>
- 
-  <!-- Toast notifications -->
-  <div class="toast-container" id="toastContainer"></div>
- 
-  <script src="script.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>

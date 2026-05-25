@@ -1,920 +1,771 @@
 /**
- * SudokuX — Premium Sudoku Solver
- * Core Engine: Backtracking Algorithm (inspired by C++ recursive implementation)
- * ─────────────────────────────────────────────────────────────────────────────
- * Architecture mirrors the original C++ project:
- *   - 2D array (9×9) as board representation
- *   - isSafe() → validates row, column, and 3×3 box (like C++ isValid)
- *   - solveSudoku() → recursive backtracking solver
- *   - findEmpty() → finds next empty cell (like C++ findUnassigned)
+ * ==========================================================================
+ * Sudoku Solver - Core Game Engine & Visualizer (Recursive Backtracking)
+ * ==========================================================================
  */
- 
-'use strict';
- 
-/* ═══════════════════════════════════════════════
-   1. STATE
-═══════════════════════════════════════════════ */
-const State = {
-  board:       Array.from({length: 9}, () => Array(9).fill(0)), // current board
-  solution:    Array.from({length: 9}, () => Array(9).fill(0)), // full solution
-  given:       Array.from({length: 9}, () => Array(9).fill(false)), // pre-filled cells
-  notes:       Array.from({length: 9}, () => Array.from({length:9}, ()=> new Set())), // pencil notes
-  selected:    null,   // {row, col}
-  difficulty:  'easy',
-  hintsLeft:   3,
-  hintsUsed:   0,
-  errorCount:  0,
-  totalErrors: 0,
-  totalSolved: 0,
-  totalHints:  0,
-  bestTime:    Infinity,
-  timerSecs:   0,
-  timerActive: false,
-  timerHandle: null,
-  solving:     false,
-  soundOn:     true,
-  visualOn:    true,
-  solveSpeed:  3,
-  noteMode:    false,
-};
- 
-/* Difficulty → number of clues revealed */
-const CLUE_COUNT = { easy: 38, medium: 30, hard: 24 };
- 
-/* ═══════════════════════════════════════════════
-   2. DOM REFS
-═══════════════════════════════════════════════ */
-const $ = id => document.getElementById(id);
-const Board       = $('sudokuBoard');
-const TimerDisplay= $('timerDisplay');
-const StatusMsg   = $('statusMessage');
-const HintsLeft   = $('hintsLeft');
-const ErrorCount  = $('errorCount');
-const StatSolved  = $('statSolved');
-const StatBest    = $('statBest');
-const StatHints   = $('statHints');
-const StatErrors  = $('statErrors');
-const WinModal    = $('winModal');
-const ErrorModal  = $('errorModal');
-const WinTime     = $('winTime');
-const WinHints    = $('winHints');
-const WinErrors   = $('winErrors');
-const SpeedLabel  = $('speedLabel');
- 
-/* ═══════════════════════════════════════════════
-   3. CORE BACKTRACKING ENGINE
-   (direct port of the C++ Sudoku solver logic)
-═══════════════════════════════════════════════ */
- 
-/**
- * isSafe — Validates placement of `num` at (row, col)
- * Checks: row, column, and 3×3 box — exactly as in C++
- */
-function isSafe(board, row, col, num) {
-  // ── Row check ──
-  for (let c = 0; c < 9; c++) {
-    if (board[row][c] === num) return false;
-  }
-  // ── Column check ──
-  for (let r = 0; r < 9; r++) {
-    if (board[r][col] === num) return false;
-  }
-  // ── 3×3 Box check ──
-  const boxRow = Math.floor(row / 3) * 3;
-  const boxCol = Math.floor(col / 3) * 3;
-  for (let r = boxRow; r < boxRow + 3; r++) {
-    for (let c = boxCol; c < boxCol + 3; c++) {
-      if (board[r][c] === num) return false;
+
+class SoundSynth {
+    constructor() {
+        this.ctx = null;
+        this.enabled = true;
     }
-  }
-  return true;
-}
- 
-/**
- * findEmpty — Finds next empty cell (value === 0)
- * Returns {row, col} or null if board is complete
- */
-function findEmpty(board) {
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      if (board[r][c] === 0) return {row: r, col: c};
+
+    init() {
+        if (!this.ctx) {
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
     }
-  }
-  return null; // Board solved!
-}
- 
-/**
- * solveSudoku — Recursive Backtracking Algorithm
- * Identical logic to the C++ recursive solver:
- *   1. Find empty cell
- *   2. Try digits 1–9
- *   3. If safe → place & recurse
- *   4. If recursion fails → backtrack (reset to 0)
- * Returns true if solved, false if unsolvable
- */
-function solveSudoku(board) {
-  const empty = findEmpty(board);
-  if (!empty) return true; // Base case: no empty cell → solved!
- 
-  const {row, col} = empty;
- 
-  for (let num = 1; num <= 9; num++) {
-    if (isSafe(board, row, col, num)) {
-      board[row][col] = num;         // Place number
-      if (solveSudoku(board)) return true; // Recurse
-      board[row][col] = 0;           // Backtrack
+
+    playTone(freq, type, duration, volume = 0.1, delay = 0) {
+        if (!this.enabled) return;
+        try {
+            this.init();
+            if (!this.ctx) return;
+
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, this.ctx.currentTime + delay);
+
+            gain.gain.setValueAtTime(volume, this.ctx.currentTime + delay);
+            gain.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + delay + duration);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start(this.ctx.currentTime + delay);
+            osc.stop(this.ctx.currentTime + delay + duration);
+        } catch (e) {
+            console.warn("Audio Context error:", e);
+        }
     }
-  }
-  return false; // Trigger backtracking in caller
-}
- 
-/**
- * isValidBoard — Checks if existing filled cells violate Sudoku rules
- * Used for input validation
- */
-function isValidBoard(board) {
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      const num = board[r][c];
-      if (num === 0) continue;
-      board[r][c] = 0;
-      const safe = isSafe(board, r, c, num);
-      board[r][c] = num;
-      if (!safe) return false;
+
+    playClick() {
+        this.playTone(700, 'sine', 0.05, 0.04);
     }
-  }
-  return true;
-}
- 
-/**
- * countSolutions — Counts solutions (≤ 2) to check uniqueness
- */
-function countSolutions(board, limit = 2) {
-  const empty = findEmpty(board);
-  if (!empty) return 1;
-  const {row, col} = empty;
-  let count = 0;
-  for (let num = 1; num <= 9; num++) {
-    if (isSafe(board, row, col, num)) {
-      board[row][col] = num;
-      count += countSolutions(board, limit);
-      board[row][col] = 0;
-      if (count >= limit) return count;
+
+    playInsert() {
+        this.playTone(523.25, 'sine', 0.12, 0.06); // C5
+        this.playTone(659.25, 'sine', 0.12, 0.04, 0.04); // E5
     }
-  }
-  return count;
-}
- 
-/* ═══════════════════════════════════════════════
-   4. PUZZLE GENERATION
-═══════════════════════════════════════════════ */
- 
-/** Generates a fully solved board using randomised backtracking */
-function generateFullBoard() {
-  const board = Array.from({length: 9}, () => Array(9).fill(0));
-  fillBoard(board);
-  return board;
-}
- 
-function fillBoard(board) {
-  const empty = findEmpty(board);
-  if (!empty) return true;
-  const {row, col} = empty;
-  const nums = shuffle([1,2,3,4,5,6,7,8,9]);
-  for (const num of nums) {
-    if (isSafe(board, row, col, num)) {
-      board[row][col] = num;
-      if (fillBoard(board)) return true;
-      board[row][col] = 0;
+
+    playErase() {
+        try {
+            if (!this.enabled) return;
+            this.init();
+            if (!this.ctx) return;
+
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.frequency.setValueAtTime(250, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(80, this.ctx.currentTime + 0.12);
+
+            gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.00001, this.ctx.currentTime + 0.12);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.12);
+        } catch (e) {}
     }
-  }
-  return false;
-}
- 
-/** Creates a puzzle by removing cells from full board */
-function generatePuzzle(difficulty) {
-  const full = generateFullBoard();
-  const solution = full.map(r => [...r]);
-  const puzzle   = full.map(r => [...r]);
-  const clues    = CLUE_COUNT[difficulty];
-  const toRemove = 81 - clues;
- 
-  const positions = shuffle([...Array(81).keys()]);
-  let removed = 0;
- 
-  for (const pos of positions) {
-    if (removed >= toRemove) break;
-    const r = Math.floor(pos / 9);
-    const c = pos % 9;
-    const backup = puzzle[r][c];
-    puzzle[r][c] = 0;
- 
-    // Ensure unique solution (skip heavy check on hard for speed)
-    if (difficulty !== 'hard') {
-      const copy = puzzle.map(row => [...row]);
-      if (countSolutions(copy, 2) !== 1) {
-        puzzle[r][c] = backup;
-        continue;
-      }
+
+    playError() {
+        this.playTone(130, 'triangle', 0.2, 0.1);
+        this.playTone(125, 'sawtooth', 0.2, 0.03);
     }
-    removed++;
-  }
- 
-  return {puzzle, solution};
-}
- 
-/* ═══════════════════════════════════════════════
-   5. UI — BOARD RENDERING
-═══════════════════════════════════════════════ */
- 
-function initBoard() {
-  Board.innerHTML = '';
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      const cell = document.createElement('div');
-      cell.className = 'cell';
-      cell.dataset.row = r;
-      cell.dataset.col = c;
- 
-      // Note grid inside cell
-      const notes = document.createElement('div');
-      notes.className = 'cell-notes';
-      notes.id = `notes-${r}-${c}`;
-      for (let n = 1; n <= 9; n++) {
-        const nd = document.createElement('span');
-        nd.className = 'cell-note';
-        nd.id = `note-${r}-${c}-${n}`;
-        notes.appendChild(nd);
-      }
-      cell.appendChild(notes);
- 
-      cell.addEventListener('click', () => onCellClick(r, c));
-      Board.appendChild(cell);
+
+    playStep() {
+        this.playTone(950, 'sine', 0.015, 0.015);
     }
-  }
-}
- 
-function renderBoard() {
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      renderCell(r, c);
+
+    playBacktrack() {
+        this.playTone(550, 'sine', 0.015, 0.015);
     }
-  }
-}
- 
-function renderCell(r, c) {
-  const cell = getCell(r, c);
-  const val  = State.board[r][c];
-  const notesEl = document.getElementById(`notes-${r}-${c}`);
- 
-  // Clear state classes
-  cell.classList.remove('given','user','error','hint','solving','backtrack','solve-animate');
-  cell.textContent = '';
-  notesEl.style.display = 'none';
- 
-  if (val !== 0) {
-    cell.appendChild(notesEl); // re-add (textContent clears children)
-    cell.textContent = val;
-    cell.appendChild(notesEl);
-    notesEl.style.display = 'none';
- 
-    if (State.given[r][c]) cell.classList.add('given');
-    else cell.classList.add('user');
-  } else {
-    // Show notes if any
-    const cellNotes = State.notes[r][c];
-    if (cellNotes.size > 0) {
-      for (let n = 1; n <= 9; n++) {
-        const nd = document.getElementById(`note-${r}-${c}-${n}`);
-        nd.textContent = cellNotes.has(n) ? n : '';
-      }
-      notesEl.style.display = 'grid';
+
+    playWin() {
+        const scale = [523.25, 587.33, 659.25, 783.99, 880.00, 1046.50];
+        scale.forEach((freq, idx) => {
+            this.playTone(freq, 'sine', 0.3, 0.05, idx * 0.07);
+        });
     }
-  }
-}
- 
-function getCell(r, c) {
-  return Board.children[r * 9 + c];
-}
- 
-function highlightSelection(r, c) {
-  // Clear previous
-  for (let i = 0; i < 81; i++) {
-    Board.children[i].classList.remove('selected','related','same-num');
-  }
-  if (r === null) return;
- 
-  const val = State.board[r][c];
-  for (let row = 0; row < 9; row++) {
-    for (let col = 0; col < 9; col++) {
-      const cell = getCell(row, col);
-      if (row === r && col === c) {
-        cell.classList.add('selected');
-      } else if (
-        row === r || col === c ||
-        (Math.floor(row/3) === Math.floor(r/3) && Math.floor(col/3) === Math.floor(c/3))
-      ) {
-        cell.classList.add('related');
-      }
-      if (val !== 0 && State.board[row][col] === val) {
-        cell.classList.add('same-num');
-      }
+
+    playComplete() {
+        this.playTone(587.33, 'sine', 0.25, 0.06);
+        this.playTone(880.00, 'sine', 0.3, 0.05, 0.08);
     }
-  }
 }
- 
-/* ═══════════════════════════════════════════════
-   6. EVENTS
-═══════════════════════════════════════════════ */
- 
-function onCellClick(r, c) {
-  if (State.solving) return;
-  State.selected = {row: r, col: c};
-  highlightSelection(r, c);
-  updateNumpadActive();
-}
- 
-function onNumInput(num) {
-  if (State.solving) return;
-  const sel = State.selected;
-  if (!sel) { toast('Select a cell first!', 'info'); return; }
-  const {row, col} = sel;
-  if (State.given[row][col]) { playSound('error'); return; }
- 
-  if (State.noteMode) {
-    // Toggle note
-    const notes = State.notes[row][col];
-    if (num === 0) { notes.clear(); }
-    else { notes.has(num) ? notes.delete(num) : notes.add(num); }
-    renderCell(row, col);
-    return;
-  }
- 
-  if (num === 0) {
-    State.board[row][col] = 0;
-    State.notes[row][col].clear();
-    renderCell(row, col);
-    highlightSelection(row, col);
-    return;
-  }
- 
-  // Validate move
-  const prev = State.board[row][col];
-  State.board[row][col] = num;
- 
-  if (!isSafe(State.board, row, col, num)) {
-    // Invalid move
-    State.board[row][col] = num; // keep it visible but mark error
-    getCell(row, col).classList.add('error');
-    setTimeout(() => {
-      getCell(row, col).classList.remove('error');
-    }, 600);
-    State.errorCount++;
-    State.totalErrors++;
-    updateStats();
-    playSound('error');
-    setStatus(`⚠ Conflict detected at (${row+1},${col+1})!`);
-    return;
-  }
- 
-  // Clear notes in affected cells
-  clearNotesFor(row, col, num);
- 
-  renderCell(row, col);
-  highlightSelection(row, col);
-  updateNumpadActive();
-  playSound('place');
- 
-  // Check win
-  if (findEmpty(State.board) === null) checkWin();
-}
- 
-function clearNotesFor(row, col, num) {
-  // Clear num from row, col, box notes
-  for (let i = 0; i < 9; i++) {
-    State.notes[row][i].delete(num);
-    State.notes[i][col].delete(num);
-  }
-  const br = Math.floor(row/3)*3, bc = Math.floor(col/3)*3;
-  for (let r = br; r < br+3; r++)
-    for (let c = bc; c < bc+3; c++)
-      State.notes[r][c].delete(num);
-}
- 
-function updateNumpadActive() {
-  const sel = State.selected;
-  if (!sel) return;
-  const val = State.board[sel.row][sel.col];
-  document.querySelectorAll('.num-btn').forEach(btn => {
-    btn.classList.toggle('active', +btn.dataset.num === val && val !== 0);
-  });
-}
- 
-/* Keyboard input */
-document.addEventListener('keydown', e => {
-  if (State.solving) return;
-  const sel = State.selected;
- 
-  // Arrow navigation
-  const arrows = {ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
-  if (arrows[e.key]) {
-    e.preventDefault();
-    const [dr, dc] = arrows[e.key];
-    const r = sel ? Math.max(0,Math.min(8,sel.row+dr)) : 0;
-    const c = sel ? Math.max(0,Math.min(8,sel.col+dc)) : 0;
-    onCellClick(r, c);
-    return;
-  }
- 
-  if (e.key === 'n' || e.key === 'N') {
-    State.noteMode = !State.noteMode;
-    toast(State.noteMode ? 'Note mode ON' : 'Note mode OFF', 'info');
-    return;
-  }
- 
-  const num = e.key === 'Backspace' || e.key === 'Delete' ? 0
-            : (e.key >= '1' && e.key <= '9') ? +e.key : null;
-  if (num !== null) onNumInput(num);
-});
- 
-/* ═══════════════════════════════════════════════
-   7. ACTIONS
-═══════════════════════════════════════════════ */
- 
-function generatePuzzleAction() {
-  if (State.solving) return;
-  setStatus('Generating puzzle...');
-  stopTimer();
- 
-  // Use setTimeout to let UI paint
-  setTimeout(() => {
-    const {puzzle, solution} = generatePuzzle(State.difficulty);
- 
-    // Copy into state
+
+const synth = new SoundSynth();
+
+let boardPuzzle = Array.from({ length: 9 }, () => Array(9).fill(0));
+let boardCurrent = Array.from({ length: 9 }, () => Array(9).fill(0));
+let boardSolution = Array.from({ length: 9 }, () => Array(9).fill(0));
+
+let selectedCell = null;
+let isSolving = false;
+let cancelSolveRequest = false;
+
+let timerInterval = null;
+let timerSeconds = 0;
+let timerPaused = false;
+
+// DOM Cache
+const boardEl = document.getElementById('sudoku-board-element');
+const statusMsgEl = document.getElementById('status-message');
+const statusBadgeEl = document.getElementById('status-badge');
+const difficultySelect = document.getElementById('difficulty-select');
+const btnGenerate = document.getElementById('btn-generate');
+const btnSolveVisual = document.getElementById('btn-solve-visual');
+const btnSolveInstant = document.getElementById('btn-solve-instant');
+const btnHint = document.getElementById('btn-hint');
+const btnReset = document.getElementById('btn-reset');
+const btnClear = document.getElementById('btn-clear');
+const btnCheck = document.getElementById('btn-check');
+const btnThemeToggle = document.getElementById('btn-theme-toggle');
+const themeIconSun = document.getElementById('theme-icon-sun');
+const themeIconMoon = document.getElementById('theme-icon-moon');
+const btnSoundToggle = document.getElementById('btn-sound-toggle');
+const soundIconOn = document.getElementById('sound-icon-on');
+const soundIconOff = document.getElementById('sound-icon-off');
+const speedSlider = document.getElementById('speed-slider');
+const speedValueLabel = document.getElementById('speed-value');
+const toggleAutocheck = document.getElementById('toggle-autocheck');
+const timerTextEl = document.getElementById('timer-text');
+const numpadButtons = document.querySelectorAll('.numpad-btn:not(.erase-btn)');
+const numpadErase = document.getElementById('numpad-erase');
+
+function createBoardDOM() {
+    boardEl.innerHTML = '';
     for (let r = 0; r < 9; r++) {
-      for (let c = 0; c < 9; c++) {
-        State.board[r][c]    = puzzle[r][c];
-        State.solution[r][c] = solution[r][c];
-        State.given[r][c]    = puzzle[r][c] !== 0;
-        State.notes[r][c]    = new Set();
-      }
+        for (let c = 0; c < 9; c++) {
+            const cell = document.createElement('div');
+            cell.classList.add('sudoku-cell');
+            cell.dataset.row = r;
+            cell.dataset.col = c;
+            cell.tabIndex = 0;
+
+            cell.addEventListener('click', () => {
+                if (isSolving) return;
+                synth.playClick();
+                selectCell(r, c);
+            });
+
+            cell.addEventListener('focus', () => {
+                if (isSolving) return;
+                selectCell(r, c);
+            });
+
+            boardEl.appendChild(cell);
+        }
     }
- 
-    State.selected   = null;
-    State.hintsLeft  = 3;
-    State.errorCount = 0;
-    HintsLeft.textContent  = 3;
-    ErrorCount.textContent = 0;
- 
-    renderBoard();
-    highlightSelection(null, null);
-    resetTimer();
-    startTimer();
-    setStatus(`${cap(State.difficulty)} puzzle generated. Good luck!`);
-    playSound('generate');
-  }, 30);
 }
- 
-/**
- * animatedSolve — Visualises the backtracking algorithm step by step
- * Creates an async generator of solver steps, then renders them at speed
- */
-async function animatedSolveAction() {
-  if (State.solving) return;
-  if (!isValidBoard(State.board)) { showError('Invalid Board', 'The current board has conflicts. Clear them before solving.'); return; }
- 
-  State.solving = true;
-  $('solveBtn').disabled = true;
-  setStatus('🧠 Backtracking solver running...');
- 
-  const boardCopy = State.board.map(r => [...r]);
-  const steps     = [];
- 
-  // Collect all backtracking steps
-  function solveWithSteps(board) {
-    const empty = findEmpty(board);
-    if (!empty) return true;
-    const {row, col} = empty;
+
+function selectCell(r, c) {
+    selectedCell = { r, c };
+    const cells = document.querySelectorAll('.sudoku-cell');
+    cells.forEach(cell => cell.classList.remove('selected', 'highlighted', 'same-number'));
+
+    const activeCell = getCellDOM(r, c);
+    activeCell.classList.add('selected');
+
+    const startRow = r - (r % 3);
+    const startCol = c - (c % 3);
+    const cellValue = boardCurrent[r][c];
+
+    cells.forEach(cell => {
+        const cr = parseInt(cell.dataset.row);
+        const cc = parseInt(cell.dataset.col);
+        
+        if (cr === r || cc === c) {
+            cell.classList.add('highlighted');
+        }
+        if (cr >= startRow && cr < startRow + 3 && cc >= startCol && cc < startCol + 3) {
+            cell.classList.add('highlighted');
+        }
+        if (cellValue !== 0 && boardCurrent[cr][cc] === cellValue) {
+            cell.classList.add('same-number');
+        }
+    });
+}
+
+function getCellDOM(r, c) {
+    return boardEl.children[r * 9 + c];
+}
+
+function renderBoardDOM() {
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            const cell = getCellDOM(r, c);
+            const val = boardCurrent[r][c];
+            cell.textContent = val !== 0 ? val : '';
+            cell.className = 'sudoku-cell';
+            
+            if (boardPuzzle[r][c] !== 0) {
+                cell.classList.add('original');
+            }
+        }
+    }
+    if (selectedCell) selectCell(selectedCell.r, selectedCell.c);
+    if (toggleAutocheck.checked) validateAllBoardCells();
+}
+
+function inputSelectedCellValue(val) {
+    if (!selectedCell || isSolving) return;
+    const { r, c } = selectedCell;
+
+    if (boardPuzzle[r][c] !== 0) {
+        synth.playError();
+        return;
+    }
+
+    if (val === 0) {
+        boardCurrent[r][c] = 0;
+        synth.playErase();
+    } else {
+        boardCurrent[r][c] = val;
+        synth.playInsert();
+    }
+
+    renderBoardDOM();
+    if (checkGameCompleteCondition()) triggerWinSequence();
+}
+
+// Backtracking Core Algorithms
+function isValid(grid, r, c, num) {
+    for (let colIndex = 0; colIndex < 9; colIndex++) {
+        if (grid[r][colIndex] === num) return false;
+    }
+    for (let rowIndex = 0; rowIndex < 9; rowIndex++) {
+        if (grid[rowIndex][c] === num) return false;
+    }
+    const startRow = r - (r % 3);
+    const startCol = c - (c % 3);
+    for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+            if (grid[startRow + i][startCol + j] === num) return false;
+        }
+    }
+    return true;
+}
+
+function findEmptyCell(grid) {
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (grid[r][c] === 0) return [r, c];
+        }
+    }
+    return [-1, -1];
+}
+
+function solveSudoku(grid) {
+    const [r, c] = findEmptyCell(grid);
+    if (r === -1) return true;
+
     for (let num = 1; num <= 9; num++) {
-      if (isSafe(board, row, col, num)) {
-        board[row][col] = num;
-        steps.push({row, col, num, type: 'place'});
-        if (solveWithSteps(board)) return true;
-        board[row][col] = 0;
-        steps.push({row, col, num: 0, type: 'back'});
-      }
+        if (isValid(grid, r, c, num)) {
+            grid[r][c] = num;
+            if (solveSudoku(grid)) return true;
+            grid[r][c] = 0; // backtrack
+        }
     }
     return false;
-  }
- 
-  const hasSolution = solveWithSteps(boardCopy);
- 
-  if (!hasSolution) {
-    State.solving = false;
-    $('solveBtn').disabled = false;
-    showError('No Solution', 'This puzzle cannot be solved. It may be invalid or have no valid arrangement.');
-    return;
-  }
- 
-  if (!State.visualOn) {
-    // Instant solve
-    for (let r = 0; r < 9; r++)
-      for (let c = 0; c < 9; c++)
-        if (!State.given[r][c]) State.board[r][c] = boardCopy[r][c];
-    renderBoard();
-    finishSolve();
-    return;
-  }
- 
-  // Speed → delay mapping
-  const delays = {1: 60, 2: 25, 3: 10, 4: 3, 5: 0};
-  const delay  = delays[State.solveSpeed] || 10;
- 
-  for (const step of steps) {
-    const {row, col, num, type} = step;
-    if (State.given[row][col]) continue;
-    State.board[row][col] = num;
-    const cell = getCell(row, col);
-    cell.classList.remove('solving','backtrack','error');
- 
-    if (num !== 0) {
-      cell.textContent = num;
-      cell.classList.add(type === 'back' ? 'backtrack' : 'solving');
+}
+
+function fillBoardRandom(grid) {
+    const [r, c] = findEmptyCell(grid);
+    if (r === -1) return true;
+
+    const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+    for (let i = numbers.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [numbers[i], numbers[j]] = [numbers[j], numbers[i]];
+    }
+
+    for (const num of numbers) {
+        if (isValid(grid, r, c, num)) {
+            grid[r][c] = num;
+            if (fillBoardRandom(grid)) return true;
+            grid[r][c] = 0;
+        }
+    }
+    return false;
+}
+
+function initPuzzleGeneration(difficulty) {
+    resetTimer();
+    updateStatus("Generating new Sudoku board clues...", "info");
+
+    const emptyGrid = Array.from({ length: 9 }, () => Array(9).fill(0));
+    fillBoardRandom(emptyGrid);
+    boardSolution = emptyGrid.map(row => [...row]);
+    
+    const puzzleGrid = emptyGrid.map(row => [...row]);
+    let cluesToRemove = 46;
+    if (difficulty === 'easy') cluesToRemove = 36;
+    else if (difficulty === 'hard') cluesToRemove = 56;
+
+    const cellIndices = Array.from({ length: 81 }, (_, i) => i);
+    for (let i = cellIndices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [cellIndices[i], cellIndices[j]] = [cellIndices[j], cellIndices[i]];
+    }
+
+    for (let k = 0; k < cluesToRemove; k++) {
+        const idx = cellIndices[k];
+        puzzleGrid[Math.floor(idx / 9)][idx % 9] = 0;
+    }
+
+    boardPuzzle = puzzleGrid.map(row => [...row]);
+    boardCurrent = puzzleGrid.map(row => [...row]);
+
+    renderBoardDOM();
+    updateStatus(`Generated ${difficulty} puzzle!`, "info");
+    startTimer();
+}
+
+// Conflict Highlighting Engine
+function validateAllBoardCells() {
+    const cells = document.querySelectorAll('.sudoku-cell');
+    cells.forEach(c => c.classList.remove('error'));
+    let hasConflict = false;
+
+    for (let r = 0; r < 9; r++) {
+        const seen = {};
+        for (let c = 0; c < 9; c++) {
+            const val = boardCurrent[r][c];
+            if (val !== 0) {
+                if (seen[val] !== undefined) {
+                    getCellDOM(r, seen[val]).classList.add('error');
+                    getCellDOM(r, c).classList.add('error');
+                    hasConflict = true;
+                } else seen[val] = c;
+            }
+        }
+    }
+    for (let c = 0; c < 9; c++) {
+        const seen = {};
+        for (let r = 0; r < 9; r++) {
+            const val = boardCurrent[r][c];
+            if (val !== 0) {
+                if (seen[val] !== undefined) {
+                    getCellDOM(seen[val], c).classList.add('error');
+                    getCellDOM(r, c).classList.add('error');
+                    hasConflict = true;
+                } else seen[val] = r;
+            }
+        }
+    }
+    for (let boxRow = 0; boxRow < 9; boxRow += 3) {
+        for (let boxCol = 0; boxCol < 9; boxCol += 3) {
+            const seen = {};
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    const r = boxRow + i;
+                    const c = boxCol + j;
+                    const val = boardCurrent[r][c];
+                    if (val !== 0) {
+                        if (seen[val] !== undefined) {
+                            getCellDOM(seen[val].r, seen[val].c).classList.add('error');
+                            getCellDOM(r, c).classList.add('error');
+                            hasConflict = true;
+                        } else seen[val] = { r, c };
+                    }
+                }
+            }
+        }
+    }
+
+    if (hasConflict) updateStatus("Validation Error: Duplicate numbers found!", "error");
+    return !hasConflict;
+}
+
+function checkGameCompleteCondition() {
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (boardCurrent[r][c] === 0 || boardCurrent[r][c] !== boardSolution[r][c]) return false;
+        }
+    }
+    return true;
+}
+
+function triggerWinSequence() {
+    pauseTimer();
+    synth.playWin();
+    updateStatus("Congratulations! You solved the Sudoku! 🎉", "success");
+
+    const cells = document.querySelectorAll('.sudoku-cell');
+    cells.forEach((cell, idx) => {
+        setTimeout(() => cell.classList.add('cell-win'), idx * 10);
+    });
+}
+
+// Asynchronous visualizer backtracking
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+function getVisualDelaySpeed() {
+    const sliderVal = parseInt(speedSlider.value);
+    return Math.max(1, 550 - (sliderVal * 5.4));
+}
+
+function isInitialGridValid() {
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            const val = boardCurrent[r][c];
+            if (val !== 0) {
+                boardCurrent[r][c] = 0;
+                const check = isValid(boardCurrent, r, c, val);
+                boardCurrent[r][c] = val;
+                if (!check) return false;
+            }
+        }
+    }
+    return true;
+}
+
+async function solveVisualHelper() {
+    if (cancelSolveRequest) return false;
+
+    const [r, c] = findEmptyCell(boardCurrent);
+    if (r === -1) return true;
+
+    for (let num = 1; num <= 9; num++) {
+        if (cancelSolveRequest) return false;
+
+        if (isValid(boardCurrent, r, c, num)) {
+            boardCurrent[r][c] = num;
+            const cell = getCellDOM(r, c);
+            cell.textContent = num;
+            cell.className = 'sudoku-cell visual-try';
+            synth.playStep();
+
+            await delay(getVisualDelaySpeed());
+
+            if (await solveVisualHelper()) {
+                cell.className = 'sudoku-cell visual-success';
+                return true;
+            }
+
+            if (cancelSolveRequest) return false;
+            
+            boardCurrent[r][c] = 0;
+            cell.textContent = '';
+            cell.className = 'sudoku-cell visual-backtrack';
+            synth.playBacktrack();
+            
+            await delay(getVisualDelaySpeed() * 0.4);
+            cell.className = 'sudoku-cell';
+        }
+    }
+    return false;
+}
+
+async function startVisualSolving() {
+    if (isSolving) {
+        cancelSolveRequest = true;
+        return;
+    }
+
+    if (!isInitialGridValid()) {
+        synth.playError();
+        updateStatus("Cannot solve! Board has pre-existing conflicts.", "error");
+        return;
+    }
+
+    const backupGrid = boardCurrent.map(row => [...row]);
+    if (!solveSudoku(backupGrid)) {
+        synth.playError();
+        updateStatus("Unsolvable Puzzle! Backtracking recursion failed.", "error");
+        return;
+    }
+
+    isSolving = true;
+    cancelSolveRequest = false;
+    pauseTimer();
+    updateStatus("Solving Puzzle... Backtracking in progress.", "info");
+    
+    btnSolveVisual.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect></svg> Stop Solver`;
+    btnSolveVisual.classList.replace('btn-success', 'btn-danger');
+    toggleUIControls(true);
+
+    const success = await solveVisualHelper();
+
+    btnSolveVisual.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Visualized Solve`;
+    btnSolveVisual.classList.replace('btn-danger', 'btn-success');
+    toggleUIControls(false);
+    isSolving = false;
+
+    if (success) {
+        synth.playComplete();
+        renderBoardDOM();
+        updateStatus("Puzzle Solved Successfully! 🎉", "success");
     } else {
-      cell.textContent = '';
-      cell.classList.add('backtrack');
+        if (cancelSolveRequest) {
+            boardCurrent = boardPuzzle.map(row => [...row]);
+            renderBoardDOM();
+            updateStatus("Solving Cancelled.", "info");
+        }
     }
- 
-    if (delay > 0) await sleep(delay);
-    else if (steps.indexOf(step) % 200 === 0) await sleep(0); // yield to browser
-  }
- 
-  // Clean up visuals
-  for (let r = 0; r < 9; r++)
-    for (let c = 0; c < 9; c++) {
-      const cell = getCell(r,c);
-      cell.classList.remove('solving','backtrack');
-      if (!State.given[r][c] && State.board[r][c] !== 0) {
-        cell.classList.add('user');
-        cell.classList.add('solve-animate');
-      }
+}
+
+function startInstantSolving() {
+    if (isSolving) return;
+
+    if (!isInitialGridValid()) {
+        synth.playError();
+        updateStatus("Cannot solve! Board has conflicts.", "error");
+        return;
     }
- 
-  finishSolve();
-}
- 
-function finishSolve() {
-  State.solving = false;
-  $('solveBtn').disabled = false;
-  renderBoard();
-  stopTimer();
-  setStatus('✅ Solved by backtracking engine!');
-  playSound('win');
-  toast('Puzzle solved by the AI engine!', 'success');
-}
- 
-function hintAction() {
-  if (State.solving) return;
-  if (State.hintsLeft <= 0) { toast('No hints remaining!', 'warn'); return; }
- 
-  // Find an empty or incorrect cell
-  const empties = [];
-  for (let r = 0; r < 9; r++)
-    for (let c = 0; c < 9; c++)
-      if (State.board[r][c] !== State.solution[r][c]) empties.push({r, c});
- 
-  if (empties.length === 0) { toast('Board is already correct!', 'success'); return; }
- 
-  const {r, c} = empties[Math.floor(Math.random() * empties.length)];
-  State.board[r][c] = State.solution[r][c];
-  State.given[r][c] = true; // lock it
-  State.notes[r][c].clear();
- 
-  const cell = getCell(r, c);
-  cell.classList.add('hint');
-  renderCell(r, c);
-  setTimeout(() => cell.classList.remove('hint'), 1200);
- 
-  State.hintsLeft--;
-  State.hintsUsed++;
-  State.totalHints++;
-  HintsLeft.textContent = State.hintsLeft;
-  updateStats();
-  playSound('hint');
-  setStatus(`💡 Hint placed at row ${r+1}, column ${c+1}`);
- 
-  if (findEmpty(State.board) === null) checkWin();
-}
- 
-function checkAction() {
-  if (State.solving) return;
-  let correct = true;
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      const val = State.board[r][c];
-      if (val === 0) continue;
-      if (val !== State.solution[r][c]) {
-        getCell(r,c).classList.add('error');
-        setTimeout(() => getCell(r,c).classList.remove('error'), 800);
-        correct = false;
-      }
+
+    const workingGrid = boardCurrent.map(row => [...row]);
+    const startTime = performance.now();
+    const success = solveSudoku(workingGrid);
+    const endTime = performance.now();
+    const timeSpent = ((endTime - startTime) / 1000).toFixed(4);
+
+    if (success) {
+        boardCurrent = workingGrid;
+        renderBoardDOM();
+        synth.playComplete();
+        pauseTimer();
+        updateStatus(`Solved instantly in ${timeSpent} seconds!`, "success");
+    } else {
+        synth.playError();
+        updateStatus("This puzzle configuration is unsolvable!", "error");
     }
-  }
-  if (correct && findEmpty(State.board) === null) checkWin();
-  else if (correct) { toast('All filled cells are correct so far!', 'success'); playSound('correct'); }
-  else { toast('Some cells are incorrect. Keep trying!', 'warn'); playSound('error'); }
 }
- 
-function resetAction() {
-  if (State.solving) return;
-  for (let r = 0; r < 9; r++)
-    for (let c = 0; c < 9; c++) {
-      if (!State.given[r][c]) {
-        State.board[r][c] = 0;
-        State.notes[r][c].clear();
-      }
+
+// User Actions & Handlers
+function toggleUIControls(disabled) {
+    btnGenerate.disabled = disabled;
+    btnSolveInstant.disabled = disabled;
+    btnHint.disabled = disabled;
+    btnReset.disabled = disabled;
+    btnClear.disabled = disabled;
+    btnCheck.disabled = disabled;
+    difficultySelect.disabled = disabled;
+}
+
+function updateStatus(message, type = "info") {
+    statusMsgEl.textContent = message;
+    statusBadgeEl.textContent = type;
+    statusBadgeEl.className = `status-badge ${type}`;
+}
+
+function getHint() {
+    if (isSolving) return;
+
+    const diffCells = [];
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (boardPuzzle[r][c] === 0 && boardCurrent[r][c] !== boardSolution[r][c]) {
+                diffCells.push({ r, c });
+            }
+        }
     }
-  State.errorCount = 0;
-  ErrorCount.textContent = 0;
-  renderBoard();
-  highlightSelection(null, null);
-  State.selected = null;
-  setStatus('Board reset. Keep solving!');
-  toast('Board cleared!', 'info');
+
+    if (diffCells.length === 0) {
+        synth.playComplete();
+        updateStatus("Board is already correctly filled!", "success");
+        return;
+    }
+
+    const randomCell = diffCells[Math.floor(Math.random() * diffCells.length)];
+    const { r, c } = randomCell;
+    boardCurrent[r][c] = boardSolution[r][c];
+    renderBoardDOM();
+    selectCell(r, c);
+    
+    const cellDOM = getCellDOM(r, c);
+    cellDOM.classList.add('visual-success');
+    synth.playInsert();
+    setTimeout(() => cellDOM.classList.remove('visual-success'), 500);
+
+    updateStatus(`Hint added in Row ${r+1}, Column ${c+1}!`, "success");
 }
- 
-/* ═══════════════════════════════════════════════
-   8. WIN CONDITION
-═══════════════════════════════════════════════ */
- 
-function checkWin() {
-  // Verify all cells match solution
-  for (let r = 0; r < 9; r++)
-    for (let c = 0; c < 9; c++)
-      if (State.board[r][c] !== State.solution[r][c]) return;
- 
-  stopTimer();
-  State.totalSolved++;
-  if (State.timerSecs < State.bestTime) State.bestTime = State.timerSecs;
-  updateStats();
- 
-  WinTime.textContent   = formatTime(State.timerSecs);
-  WinHints.textContent  = State.hintsUsed;
-  WinErrors.textContent = State.errorCount;
- 
-  playSound('win');
-  launchConfetti();
-  WinModal.classList.add('active');
+
+function resetBoard() {
+    if (isSolving) return;
+    boardCurrent = boardPuzzle.map(row => [...row]);
+    renderBoardDOM();
+    resetTimer();
+    startTimer();
+    synth.playErase();
+    updateStatus("Board reset.", "info");
 }
- 
-function launchConfetti() {
-  const container = $('confetti');
-  container.innerHTML = '';
-  const colors = ['#6c63ff','#00d4aa','#f1c40f','#e74c3c','#ff6b9d','#2ecc71'];
-  for (let i = 0; i < 40; i++) {
-    const p = document.createElement('div');
-    p.className = 'confetti-piece';
-    p.style.cssText = `
-      left: ${Math.random()*100}%;
-      top: -10px;
-      background: ${colors[i%colors.length]};
-      --dx: ${(Math.random()-0.5)*200}px;
-      animation-delay: ${Math.random()*0.8}s;
-      animation-duration: ${1.5+Math.random()}s;
-      transform: rotate(${Math.random()*360}deg);
-    `;
-    container.appendChild(p);
-  }
+
+function clearBoard() {
+    if (isSolving) return;
+    boardPuzzle = Array.from({ length: 9 }, () => Array(9).fill(0));
+    boardCurrent = Array.from({ length: 9 }, () => Array(9).fill(0));
+    boardSolution = Array.from({ length: 9 }, () => Array(9).fill(0));
+    selectedCell = null;
+    createBoardDOM();
+    renderBoardDOM();
+    resetTimer();
+    synth.playErase();
+    updateStatus("Board cleared! Enter numbers manually.", "info");
 }
- 
-/* ═══════════════════════════════════════════════
-   9. TIMER
-═══════════════════════════════════════════════ */
- 
+
+function checkBoardSolution() {
+    if (isSolving) return;
+
+    if (!validateAllBoardCells()) {
+        synth.playError();
+        return;
+    }
+
+    let isComplete = true;
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (boardCurrent[r][c] === 0) {
+                isComplete = false;
+                break;
+            }
+        }
+    }
+
+    if (!isComplete) {
+        synth.playClick();
+        updateStatus("No conflicts, but incomplete! Keep going.", "info");
+        return;
+    }
+    triggerWinSequence();
+}
+
+// Timer
 function startTimer() {
-  if (State.timerActive) return;
-  State.timerActive = true;
-  State.timerHandle = setInterval(() => {
-    State.timerSecs++;
-    TimerDisplay.textContent = formatTime(State.timerSecs);
-  }, 1000);
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        if (!timerPaused) {
+            timerSeconds++;
+            const mins = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+            const secs = String(timerSeconds % 60).padStart(2, '0');
+            timerTextEl.textContent = `${mins}:${secs}`;
+        }
+    }, 1000);
 }
- 
-function stopTimer() {
-  State.timerActive = false;
-  clearInterval(State.timerHandle);
-}
- 
+
+function pauseTimer() { timerPaused = true; }
 function resetTimer() {
-  stopTimer();
-  State.timerSecs = 0;
-  TimerDisplay.textContent = '00:00';
+    clearInterval(timerInterval);
+    timerSeconds = 0;
+    timerPaused = false;
+    timerTextEl.textContent = "00:00";
 }
- 
-function formatTime(secs) {
-  const m = String(Math.floor(secs / 60)).padStart(2,'0');
-  const s = String(secs % 60).padStart(2,'0');
-  return `${m}:${s}`;
-}
- 
-/* ═══════════════════════════════════════════════
-   10. SOUND ENGINE (Web Audio API)
-═══════════════════════════════════════════════ */
- 
-let audioCtx = null;
-function getAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  return audioCtx;
-}
- 
-function playSound(type) {
-  if (!State.soundOn) return;
-  try {
-    const ctx = getAudio();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain); gain.connect(ctx.destination);
- 
-    const sounds = {
-      place:    { freq: 440, type: 'sine',   dur: 0.08, vol: 0.15 },
-      error:    { freq: 150, type: 'square', dur: 0.15, vol: 0.2  },
-      hint:     { freq: 660, type: 'sine',   dur: 0.2,  vol: 0.18 },
-      correct:  { freq: 550, type: 'sine',   dur: 0.25, vol: 0.2  },
-      generate: { freq: 320, type: 'sine',   dur: 0.15, vol: 0.15 },
-      win:      { freq: 880, type: 'sine',   dur: 0.5,  vol: 0.25 },
-    };
-    const s = sounds[type] || sounds.place;
-    osc.type = s.type;
-    osc.frequency.setValueAtTime(s.freq, ctx.currentTime);
-    if (type === 'win') {
-      osc.frequency.exponentialRampToValueAtTime(s.freq*2, ctx.currentTime+0.3);
+
+// Keyboard Input
+function handleKeyboardInput(e) {
+    if (isSolving || !selectedCell) return;
+    const { r, c } = selectedCell;
+
+    if (e.key >= '1' && e.key <= '9') {
+        inputSelectedCellValue(parseInt(e.key));
+        e.preventDefault();
+    } else if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
+        inputSelectedCellValue(0);
+        e.preventDefault();
+    } else if (e.key === 'ArrowUp') {
+        selectCell((r - 1 + 9) % 9, c);
+        e.preventDefault();
+    } else if (e.key === 'ArrowDown') {
+        selectCell((r + 1) % 9, c);
+        e.preventDefault();
+    } else if (e.key === 'ArrowLeft') {
+        selectCell(r, (c - 1 + 9) % 9);
+        e.preventDefault();
+    } else if (e.key === 'ArrowRight') {
+        selectCell(r, (c + 1) % 9);
+        e.preventDefault();
     }
-    gain.gain.setValueAtTime(s.vol, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + s.dur);
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + s.dur + 0.01);
-  } catch(e) { /* silence audio errors */ }
 }
- 
-/* ═══════════════════════════════════════════════
-   11. TOAST NOTIFICATIONS
-═══════════════════════════════════════════════ */
- 
-function toast(msg, type = 'info') {
-  const tc = $('toastContainer');
-  const t  = document.createElement('div');
-  t.className = `toast ${type}`;
-  t.textContent = msg;
-  tc.appendChild(t);
-  setTimeout(() => t.remove(), 3200);
+
+function updateSpeedLabel() {
+    const val = parseInt(speedSlider.value);
+    let label = "Fast";
+    if (val < 25) label = "Slow";
+    else if (val < 55) label = "Medium";
+    else if (val < 85) label = "Fast";
+    else label = "Hyper";
+    speedValueLabel.textContent = label;
 }
- 
-/* ═══════════════════════════════════════════════
-   12. MODALS
-═══════════════════════════════════════════════ */
- 
-function showError(title, body) {
-  $('errorTitle').textContent = title;
-  $('errorBody').textContent  = body;
-  ErrorModal.classList.add('active');
+
+function initThemeToggle() {
+    const storedTheme = localStorage.getItem('theme') || 'light';
+    setTheme(storedTheme);
+
+    btnThemeToggle.addEventListener('click', () => {
+        const activeTheme = document.documentElement.getAttribute('data-theme');
+        setTheme(activeTheme === 'dark' ? 'light' : 'dark');
+        synth.playClick();
+    });
 }
- 
-/* ═══════════════════════════════════════════════
-   13. STATUS & STATS
-═══════════════════════════════════════════════ */
- 
-function setStatus(msg) { StatusMsg.textContent = msg; }
- 
-function updateStats() {
-  StatSolved.textContent = State.totalSolved;
-  StatBest.textContent   = State.bestTime === Infinity ? '—' : formatTime(State.bestTime);
-  StatHints.textContent  = State.totalHints;
-  StatErrors.textContent = State.totalErrors;
-  ErrorCount.textContent = State.errorCount;
+
+function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+    if (theme === 'dark') {
+        themeIconSun.style.display = 'block';
+        themeIconMoon.style.display = 'none';
+    } else {
+        themeIconSun.style.display = 'none';
+        themeIconMoon.style.display = 'block';
+    }
 }
- 
-/* ═══════════════════════════════════════════════
-   14. UTILITIES
-═══════════════════════════════════════════════ */
- 
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
+
+function initSoundToggle() {
+    btnSoundToggle.addEventListener('click', () => {
+        synth.enabled = !synth.enabled;
+        if (synth.enabled) {
+            soundIconOn.style.display = 'block';
+            soundIconOff.style.display = 'none';
+            synth.playClick();
+        } else {
+            soundIconOn.style.display = 'none';
+            soundIconOff.style.display = 'block';
+        }
+    });
 }
- 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-function cap(s)    { return s.charAt(0).toUpperCase() + s.slice(1); }
- 
-/* ═══════════════════════════════════════════════
-   15. AMBIENT PARTICLES (decorative)
-═══════════════════════════════════════════════ */
- 
-function initParticles() {
-  const ambient = $('ambient');
-  for (let i = 0; i < 15; i++) {
-    const p = document.createElement('div');
-    const size = 2 + Math.random() * 3;
-    p.style.cssText = `
-      position: absolute;
-      width: ${size}px; height: ${size}px;
-      background: rgba(108,99,255,${0.1 + Math.random()*0.2});
-      border-radius: 50%;
-      left: ${Math.random()*100}%;
-      top: ${Math.random()*100}%;
-      animation: drift${Math.random()>0.5?1:2} ${10+Math.random()*15}s ease-in-out infinite alternate;
-      animation-delay: -${Math.random()*10}s;
-    `;
-    ambient.appendChild(p);
-  }
-}
- 
-/* ═══════════════════════════════════════════════
-   16. BOOT — WIRE UP ALL EVENTS
-═══════════════════════════════════════════════ */
- 
+
 function init() {
-  initBoard();
-  initParticles();
- 
-  // Difficulty
-  document.querySelectorAll('.diff-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      State.difficulty = btn.dataset.diff;
-      toast(`Difficulty set to ${cap(State.difficulty)}`, 'info');
+    createBoardDOM();
+    initThemeToggle();
+    initSoundToggle();
+    
+    btnGenerate.addEventListener('click', () => {
+        synth.playClick();
+        initPuzzleGeneration(difficultySelect.value);
     });
-  });
- 
-  // Numpad
-  document.querySelectorAll('.num-btn').forEach(btn => {
-    btn.addEventListener('click', () => onNumInput(+btn.dataset.num));
-  });
- 
-  // Action buttons
-  $('generateBtn').addEventListener('click', generatePuzzleAction);
-  $('solveBtn').addEventListener('click',    animatedSolveAction);
-  $('hintBtn').addEventListener('click',     hintAction);
-  $('checkBtn').addEventListener('click',    checkAction);
-  $('resetBtn').addEventListener('click',    resetAction);
- 
-  // Timer controls
-  $('timerStartBtn').addEventListener('click', () => {
-    if (State.timerActive) { stopTimer(); $('timerStartBtn').textContent = '▶ Start'; }
-    else { startTimer(); $('timerStartBtn').textContent = '⏸ Pause'; }
-  });
-  $('timerResetBtn').addEventListener('click', () => {
-    resetTimer(); $('timerStartBtn').textContent = '▶ Start';
-  });
- 
-  // Theme toggle
-  $('themeToggle').addEventListener('click', () => {
-    const html  = document.documentElement;
-    const isDark = html.dataset.theme === 'dark';
-    html.dataset.theme = isDark ? 'light' : 'dark';
-    $('themeToggle').querySelector('.theme-icon').textContent = isDark ? '🌙' : '☀️';
-  });
- 
-  // Sound toggle
-  $('soundToggle').addEventListener('change', e => {
-    State.soundOn = e.target.checked;
-  });
- 
-  // Visualise toggle
-  $('visualToggle').addEventListener('change', e => {
-    State.visualOn = e.target.checked;
-  });
- 
-  // Speed slider
-  $('speedSlider').addEventListener('input', e => {
-    State.solveSpeed = +e.target.value;
-    SpeedLabel.textContent = `${State.solveSpeed}×`;
-  });
- 
-  // Win modal → new game
-  $('winNewGame').addEventListener('click', () => {
-    WinModal.classList.remove('active');
-    State.hintsUsed  = 0;
-    State.errorCount = 0;
-    generatePuzzleAction();
-  });
- 
-  // Error modal close
-  $('errorClose').addEventListener('click', () => ErrorModal.classList.remove('active'));
- 
-  // Dismiss modals on backdrop click
-  [WinModal, ErrorModal].forEach(m => {
-    m.addEventListener('click', e => {
-      if (e.target === m) m.classList.remove('active');
+    btnSolveVisual.addEventListener('click', startVisualSolving);
+    btnSolveInstant.addEventListener('click', () => {
+        synth.playClick();
+        startInstantSolving();
     });
-  });
- 
-  setStatus('Select a difficulty and press Generate!');
-  toast('Welcome to SudokuX!', 'info');
+    btnHint.addEventListener('click', getHint);
+    btnReset.addEventListener('click', resetBoard);
+    btnClear.addEventListener('click', clearBoard);
+    btnCheck.addEventListener('click', checkBoardSolution);
+    
+    speedSlider.addEventListener('input', updateSpeedLabel);
+    toggleAutocheck.addEventListener('change', () => {
+        synth.playClick();
+        renderBoardDOM();
+    });
+
+    numpadButtons.forEach(btn => {
+        btn.addEventListener('click', () => inputSelectedCellValue(parseInt(btn.dataset.val)));
+    });
+    numpadErase.addEventListener('click', () => inputSelectedCellValue(0));
+
+    document.addEventListener('keydown', handleKeyboardInput);
+    updateSpeedLabel();
+    initPuzzleGeneration(difficultySelect.value);
 }
- 
-// Start the app
-document.addEventListener('DOMContentLoaded', init);
+
+window.addEventListener('DOMContentLoaded', init);
