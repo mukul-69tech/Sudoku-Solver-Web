@@ -1,51 +1,85 @@
-SudokuX — Backtracking Solver
+# ApexSudoku - Interactive Sudoku Solver Web App
 
-A premium, portfolio-grade Sudoku Solver Web Application powered by the same Recursive Backtracking Algorithm used in the original C++ project.
+A modern and fully interactive Sudoku Solver web application built using **HTML, CSS, and JavaScript**.  
+This project is inspired by my original **C++ CLI-based Sudoku Solver** that used **Recursion** and **Backtracking Algorithm** to solve Sudoku puzzles efficiently.
+
+The web version transforms the traditional console application into a modern browser-based experience with a responsive UI, real-time validation, animations, and interactive gameplay.
+
+---
+
+# 🚀 Live Demo
+
+🔗 https://sudoku-solver-pfuwxuccw-mukul-69techs-projects.vercel.app/
+
+---
+
+# 📂 GitHub Repository
+
+🔗 https://github.com/mukul-69tech/Sudoku-Solver-Web
+
+---
+
+# ✨ Features
+
+- 🎮 Interactive 9×9 Sudoku Board
+- 🧠 Automatic Sudoku Solver
+- 🔄 Backtracking Algorithm Visualization
+- ⚡ Real-Time Input Validation
+- 🎲 Random Sudoku Puzzle Generator
+- 🌙 Dark / Light Mode
+- 📱 Fully Responsive Design
+- 💡 Hint System
+- ✅ Solution Checker
+- 🔊 Interactive UI Effects
+- 🎯 Difficulty Levels (Easy / Medium / Hard)
+- 🔁 Reset & Clear Board Functionality
+- ❌ Invalid Puzzle Detection
+- 🏆 Winning Detection and Feedback
+
+---
+
+# 🛠️ Tech Stack
+
+## Frontend
+- HTML5
+- CSS3
+- JavaScript (Vanilla JS)
+
+## Algorithms & Concepts
+- Backtracking Algorithm
+- Recursion
+- 2D Arrays
+- Grid Validation Logic
+- Dynamic DOM Manipulation
+
+---
+
+# 🧩 Algorithm Used
+
+The Sudoku Solver is powered by the **Backtracking Algorithm**, a recursive problem-solving technique commonly used in constraint satisfaction problems.
+
+### Validation Rules:
+The algorithm ensures:
+- No duplicate numbers in a row
+- No duplicate numbers in a column
+- No duplicate numbers in a 3×3 subgrid
+
+### Solving Process:
+1. Find an empty cell
+2. Try placing numbers from 1–9
+3. Check if placement is valid
+4. Recursively solve the next cell
+5. Backtrack if a conflict occurs
+
+This approach efficiently solves valid Sudoku puzzles while detecting unsolvable cases.
+
+---
 
 
-🧩 Project Overview
-SudokuX transforms the original console-based C++ Sudoku solver into a fully interactive, visually stunning web application. The core solving algorithm — recursive backtracking with row/column/box validation — is preserved exactly, now visualised in real time through animated cell updates.
 
-✨ Features
-FeatureDetails🎮 Interactive BoardClick cells + numpad or keyboard⚡ Puzzle GeneratorEasy / Medium / Hard difficulty🧠 Animated SolverWatch backtracking happen live💡 HintsUp to 3 per puzzle✓ ValidationReal-time conflict detection⏱ TimerStart / Pause / Reset🎵 Sound EffectsWeb Audio API tones🌙 Dark/Light ModeFull theme toggle📝 Note ModePress N to toggle pencil notes🏆 Win ScreenConfetti + stats📱 ResponsiveMobile + Desktop⌨️ KeyboardArrow keys + digit input
+# 📦 Installation & Setup
 
-🛠 Technologies
+## Clone Repository
 
-HTML5 — Semantic structure
-CSS3 — Glassmorphism, CSS custom properties, animations
-Vanilla JavaScript (ES6+) — No frameworks, no dependencies
-Web Audio API — Procedural sound effects
-Google Fonts — Syne + JetBrains Mono
-
-
-🔬 Algorithm Explanation
-The solving engine is a direct JavaScript port of the C++ backtracking solver.
-Core Functions
-isSafe(board, row, col, num)
-  → Validates that `num` doesn't appear in the same row, column, or 3×3 box.
-  → Mirrors C++ isValid() checking all three constraint types.
-
-findEmpty(board)
-  → Scans the 9×9 grid for the first cell with value 0.
-  → Equivalent to C++ findUnassigned().
-
-solveSudoku(board)
-  → Recursive function:
-      1. Call findEmpty() — if none, return true (solved!)
-      2. Try digits 1–9
-      3. If isSafe() → place digit → recurse
-      4. If recursion returns false → reset cell to 0 (backtrack)
-      5. If no digit works → return false (trigger parent backtrack)
-Time Complexity
-
-Worst case: O(9^m) where m = number of empty cells
-In practice much faster due to constraint pruning at each step
-
-Puzzle Generation
-
-Generate a fully solved board using randomised backtracking
-Remove cells one by one, checking uniqueness of solution
-Stop when target clue count reached for chosen difficulty
-
-🤝 Credits
-Inspired by the original C++ Sudoku Solver project using recursion and backtracking. Algorithm logic preserved and ported faithfully to JavaScript.
+```bash
+git clone https://github.com/mukul-69tech/Sudoku-Solver-Web.git
