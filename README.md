@@ -1,53 +1,51 @@
-# ApexSudoku - Interactive Sudoku Solver
+SudokuX — Backtracking Solver
 
-A modern and interactive Sudoku Solver web application built using HTML, CSS, and JavaScript.  
-This project allows users to play, solve, and visualize Sudoku puzzles directly in the browser with a clean and responsive UI.
+A premium, portfolio-grade Sudoku Solver Web Application powered by the same Recursive Backtracking Algorithm used in the original C++ project.
 
-## 🚀 Live Demo
 
-https://sudoku-solver-nymo97sv5-mukul-69techs-projects.vercel.app/
+🧩 Project Overview
+SudokuX transforms the original console-based C++ Sudoku solver into a fully interactive, visually stunning web application. The core solving algorithm — recursive backtracking with row/column/box validation — is preserved exactly, now visualised in real time through animated cell updates.
 
-## 📂 GitHub Repository
+✨ Features
+FeatureDetails🎮 Interactive BoardClick cells + numpad or keyboard⚡ Puzzle GeneratorEasy / Medium / Hard difficulty🧠 Animated SolverWatch backtracking happen live💡 HintsUp to 3 per puzzle✓ ValidationReal-time conflict detection⏱ TimerStart / Pause / Reset🎵 Sound EffectsWeb Audio API tones🌙 Dark/Light ModeFull theme toggle📝 Note ModePress N to toggle pencil notes🏆 Win ScreenConfetti + stats📱 ResponsiveMobile + Desktop⌨️ KeyboardArrow keys + digit input
 
-https://github.com/mukul-69tech/Sudoku-Solver-Web
+🛠 Technologies
 
----
+HTML5 — Semantic structure
+CSS3 — Glassmorphism, CSS custom properties, animations
+Vanilla JavaScript (ES6+) — No frameworks, no dependencies
+Web Audio API — Procedural sound effects
+Google Fonts — Syne + JetBrains Mono
 
-## ✨ Features
 
-- 🎮 Interactive 9x9 Sudoku Grid
-- 🧠 Automatic Sudoku Solver using Backtracking Algorithm
-- 🎲 Random Puzzle Generator
-- 🌙 Dark / Light Mode Toggle
-- 📱 Fully Responsive Design
-- ⚡ Real-Time Input Validation
-- 🔍 Sudoku Solving Visualization
-- 🎯 Multiple Difficulty Levels
-- 🔄 Reset / Clear Board Functionality
-- 🔊 Sound Effects and UI Interactions
-- 💡 Hint System
-- ✅ Solution Checking Feature
+🔬 Algorithm Explanation
+The solving engine is a direct JavaScript port of the C++ backtracking solver.
+Core Functions
+isSafe(board, row, col, num)
+  → Validates that `num` doesn't appear in the same row, column, or 3×3 box.
+  → Mirrors C++ isValid() checking all three constraint types.
 
----
+findEmpty(board)
+  → Scans the 9×9 grid for the first cell with value 0.
+  → Equivalent to C++ findUnassigned().
 
-## 🛠️ Tech Stack
+solveSudoku(board)
+  → Recursive function:
+      1. Call findEmpty() — if none, return true (solved!)
+      2. Try digits 1–9
+      3. If isSafe() → place digit → recurse
+      4. If recursion returns false → reset cell to 0 (backtrack)
+      5. If no digit works → return false (trigger parent backtrack)
+Time Complexity
 
-- HTML5
-- CSS3
-- JavaScript (Vanilla JS)
-- Backtracking Algorithm
+Worst case: O(9^m) where m = number of empty cells
+In practice much faster due to constraint pruning at each step
 
----
+Puzzle Generation
 
-## 🧩 How It Works
+Generate a fully solved board using randomised backtracking
+Remove cells one by one, checking uniqueness of solution
+Stop when target clue count reached for chosen difficulty
 
-The Sudoku Solver uses the **Backtracking Algorithm**, a recursive approach that tries possible numbers in empty cells while checking Sudoku constraints:
-
-- No duplicate numbers in rows
-- No duplicate numbers in columns
-- No duplicate numbers in 3×3 grids
-
-If a number placement leads to an invalid state, the algorithm backtracks and tries another possibility until the puzzle is solved.
-
----
-
+🤝 Credits
+Inspired by the original C++ Sudoku Solver project using recursion and backtracking. Algorithm logic preserved and ported faithfully to JavaScript.

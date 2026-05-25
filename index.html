@@ -1,261 +1,246 @@
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Apex Sudoku - Premium Solver & Generator</title>
-  
-  <!-- SEO Meta Tags -->
-  <meta name="description" content="A modern, interactive Sudoku Solver and Generator featuring glassmorphism design, real-time input validation, step-by-step backtracking visualizer, synthesized audio, and dynamic difficulty levels.">
-  <meta name="keywords" content="sudoku, sudoku solver, backtracking visualizer, puzzle generator, web app, portfolio project">
-  <meta name="author" content="Antigravity Coding Assistant">
-  
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
-  
-  <!-- FontAwesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  
-  <!-- Custom CSS -->
-  <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SudokuX — Backtracking Solver</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <!-- Canvas for Victory Confetti -->
-  <canvas id="confetti-canvas"></canvas>
-  <div class="app-wrapper">
-    <!-- Background glow elements for Glassmorphism depth -->
-    <div class="bg-glow bg-glow-1"></div>
-    <div class="bg-glow bg-glow-2"></div>
-    
-    <header class="app-header">
-      <div class="logo-area">
-        <div class="logo-icon">
-          <i class="fa-solid fa-shapes"></i>
-        </div>
-        <div class="logo-text">
-          <h1>Apex<span>Sudoku</span></h1>
-          <p class="subtitle">Backtracking Visualizer & Game</p>
-        </div>
-      </div>
-      
-      <div class="header-actions">
-        <!-- Sound Toggle -->
-        <button id="sound-toggle-btn" class="icon-btn" title="Toggle Sound FX" aria-label="Toggle Sound Effects">
-          <i class="fa-solid fa-volume-high"></i>
-        </button>
-        <!-- Light/Dark Mode Switcher -->
-        <button id="theme-toggle-btn" class="icon-btn" title="Toggle Theme (Light/Dark)" aria-label="Toggle Theme">
-          <i class="fa-solid fa-moon"></i>
-        </button>
-        <!-- Info Modal Trigger -->
-        <button id="info-toggle-btn" class="icon-btn" title="How to use & Info" aria-label="View Info">
-          <i class="fa-solid fa-circle-info"></i>
-        </button>
-      </div>
-    </header>
-    <main class="app-main">
-      <!-- Glassmorphic Card Container -->
-      <div class="main-card glass-panel">
-        
-        <!-- Left Section: Sudoku Board & Board Controls -->
-        <section class="board-section">
-          <div class="board-outer-container">
-            <!-- 9x9 Grid Container -->
-            <div id="sudoku-board" class="sudoku-board" aria-label="Sudoku Playing Board">
-              <!-- Dynamically populated in JavaScript for clean HTML and easy DOM access -->
-            </div>
-          </div>
-          
-          <!-- Quick Status bar below board -->
-          <div class="board-status-bar">
-            <div class="status-item">
-              <span class="status-label">Empty Cells:</span>
-              <span id="empty-cells-count" class="status-value monospace">81</span>
-            </div>
-            <div class="status-item">
-              <span class="status-label">Errors:</span>
-              <span id="error-count" class="status-value monospace text-danger">0</span>
-            </div>
-          </div>
-        </section>
-        <!-- Right Section: Controls & Dashboard -->
-        <section class="controls-section">
-          
-          <!-- Top Row: Game Info & Timer -->
-          <div class="control-group game-info-card">
-            <div class="difficulty-indicator">
-              <span class="label">Difficulty</span>
-              <span id="current-difficulty-display" class="difficulty-tag diff-custom">Custom</span>
-            </div>
-            <div class="timer-card">
-              <i class="fa-regular fa-clock timer-icon"></i>
-              <div id="game-timer" class="timer-display monospace">00:00</div>
-              <button id="timer-play-pause-btn" class="timer-control-btn" title="Pause Timer">
-                <i class="fa-solid fa-pause"></i>
-              </button>
-            </div>
-          </div>
-          <!-- Tab Selector for Modes: "Play" vs "Solve Visualizer" -->
-          <div class="mode-tabs">
-            <button id="tab-play" class="tab-btn active">
-              <i class="fa-solid fa-gamepad"></i> Game Mode
-            </button>
-            <button id="tab-solve" class="tab-btn">
-              <i class="fa-solid fa-wand-magic-sparkles"></i> AI Visualizer
-            </button>
-          </div>
-          <!-- Pane 1: Play / Game Controls -->
-          <div id="pane-play" class="tab-pane active">
-            <!-- Generator controls -->
-            <div class="control-row">
-              <div class="dropdown-wrapper">
-                <select id="difficulty-select" aria-label="Select Game Difficulty">
-                  <option value="easy">Easy (45 clues)</option>
-                  <option value="medium" selected>Medium (35 clues)</option>
-                  <option value="hard">Hard (25 clues)</option>
-                </select>
-                <i class="fa-solid fa-chevron-down select-arrow"></i>
-              </div>
-              <button id="generate-btn" class="primary-btn pulse-glow">
-                <i class="fa-solid fa-rotate"></i> New Game
-              </button>
-            </div>
-            <div class="control-row gap-small">
-              <button id="hint-btn" class="secondary-btn" title="Fill one empty cell correctly">
-                <i class="fa-regular fa-lightbulb"></i> Hint
-              </button>
-              <button id="check-btn" class="secondary-btn" title="Verify current grid correctness">
-                <i class="fa-solid fa-circle-check"></i> Check Grid
-              </button>
-              <button id="reset-btn" class="secondary-btn" title="Reset board to initial puzzle state">
-                <i class="fa-solid fa-arrow-rotate-left"></i> Reset
-              </button>
-            </div>
-          </div>
-          <!-- Pane 2: Solver / Backtracking Controls -->
-          <div id="pane-solve" class="tab-pane">
-            <div class="visualizer-status">
-              <span id="visualizer-status-text">Ready to Solve</span>
-              <span id="backtrack-counter" class="monospace">Steps: 0</span>
-            </div>
-            <!-- Visualization Control buttons -->
-            <div class="control-row gap-small">
-              <button id="solve-visual-btn" class="accent-btn" title="Animate backtracking algorithm">
-                <i class="fa-solid fa-play"></i> Visual Solve
-              </button>
-              <button id="solve-instant-btn" class="primary-btn" title="Solve board instantly">
-                <i class="fa-solid fa-forward-fast"></i> Instant Solve
-              </button>
-            </div>
-            <!-- Visualizer Speed & Playback HUD -->
-            <div class="visualizer-hud">
-              <div class="speed-control">
-                <label for="speed-range">Animation Speed:</label>
-                <div class="speed-slider-container">
-                  <span class="speed-label">Slow</span>
-                  <input type="range" id="speed-range" min="1" max="100" value="50" aria-label="Animation Speed Slider">
-                  <span class="speed-label">Instant</span>
-                </div>
-              </div>
-              
-              <div class="playback-controls">
-                <button id="vis-pause-btn" class="hud-btn" disabled title="Pause Animation">
-                  <i class="fa-solid fa-pause"></i>
-                </button>
-                <button id="vis-step-btn" class="hud-btn" disabled title="Step Forward">
-                  <i class="fa-solid fa-angles-right"></i>
-                </button>
-                <button id="vis-stop-btn" class="hud-btn text-danger" disabled title="Cancel/Stop Solving">
-                  <i class="fa-solid fa-stop"></i>
-                </button>
-              </div>
-            </div>
-          </div>
-          <!-- Universal Control: Clear Board -->
-          <div class="control-row mt-medium">
-            <button id="clear-btn" class="outline-btn text-danger w-full" title="Erase everything on the board">
-              <i class="fa-solid fa-trash-can"></i> Clear Whole Board
-            </button>
-          </div>
-          <!-- Custom Number Input Keypad (for mobile & desktop clicks) -->
-          <div class="keypad-container">
-            <p class="keypad-title">Input Controller</p>
-            <div class="keypad">
-              <button class="key-btn" data-value="1">1</button>
-              <button class="key-btn" data-value="2">2</button>
-              <button class="key-btn" data-value="3">3</button>
-              <button class="key-btn" data-value="4">4</button>
-              <button class="key-btn" data-value="5">5</button>
-              <button class="key-btn" data-value="6">6</button>
-              <button class="key-btn" data-value="7">7</button>
-              <button class="key-btn" data-value="8">8</button>
-              <button class="key-btn" data-value="9">9</button>
-              <button class="key-btn key-erase" data-value="erase" title="Clear selected cell">
-                <i class="fa-solid fa-eraser"></i>
-              </button>
-            </div>
-          </div>
-        </section>
-      </div>
-    </main>
-    <!-- Info/How-To Modal -->
-    <div id="info-modal" class="modal-overlay">
-      <div class="modal-content glass-panel">
-        <button class="modal-close-btn" id="info-close-btn" aria-label="Close Info Modal">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-        <h2>Welcome to <span class="text-accent">Apex Sudoku</span></h2>
-        <div class="modal-body">
-          <h3>How to Play:</h3>
-          <ul>
-            <li>Select an empty cell in the grid, then click a number on your keyboard (1-9) or use the on-screen **Input Controller**.</li>
-            <li>Press `Backspace`, `Delete`, or the `Eraser` button on the controller to clear a cell.</li>
-            <li>Navigate the board easily using your keyboard's **arrow keys**.</li>
-          </ul>
-          <h3>Key Features:</h3>
-          <ul>
-            <li><strong>AI Visualizer:</strong> Switch to the AI Visualizer tab and click **Visual Solve** to watch the backtracking algorithm execute in real-time. Adjust the speed slider to see individual recursive decisions.</li>
-            <li><strong>Input Validation:</strong> Cells containing duplicate numbers in the same row, column, or 3x3 grid will automatically highlight in red.</li>
-            <li><strong>Hints:</strong> Need help? Click **Hint** to place the correct number in your currently selected cell.</li>
-            <li><strong>Synthesized Audio:</strong> Sound effects are synthesized live using the browser's Web Audio API—no network downloads needed.</li>
-          </ul>
-        </div>
-      </div>
+ 
+  <!-- Ambient background particles -->
+  <div class="ambient" id="ambient"></div>
+ 
+  <!-- Header -->
+  <header class="header">
+    <div class="logo">
+      <span class="logo-icon">⬛</span>
+      <span class="logo-text">SudokuX</span>
+      <span class="logo-tag">Backtracking Engine</span>
     </div>
-    <!-- Game Success Modal -->
-    <div id="success-modal" class="modal-overlay">
-      <div class="modal-content glass-panel text-center success-content animate-pop">
-        <div class="success-icon-badge">
-          <i class="fa-solid fa-trophy"></i>
-        </div>
-        <h2>Sudoku Completed!</h2>
-        <p class="success-subtitle">Excellent work, you solved the board!</p>
-        <div class="success-stats">
-          <div class="stat-box">
-            <span class="stat-label">Difficulty</span>
-            <span id="success-difficulty" class="stat-val text-accent">Medium</span>
-          </div>
-          <div class="stat-box">
-            <span class="stat-label">Time Taken</span>
-            <span id="success-time" class="stat-val text-accent">04:32</span>
-          </div>
-          <div class="stat-box">
-            <span class="stat-label">Hints Used</span>
-            <span id="success-hints" class="stat-val text-accent">0</span>
-          </div>
-        </div>
-        <button id="success-new-game-btn" class="primary-btn pulse-glow mt-large">
-          <i class="fa-solid fa-play"></i> Play Again
-        </button>
-      </div>
+    <div class="header-controls">
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">
+        <span class="theme-icon">☀️</span>
+      </button>
     </div>
-    <footer class="app-footer">
-      <p>&copy; 2026 Apex Sudoku Solver. Built with HTML, CSS & Vanilla JS.</p>
-    </footer>
+  </header>
+ 
+  <!-- Main App -->
+  <main class="app">
+ 
+    <!-- Left Panel: Controls -->
+    <aside class="panel panel-left">
+ 
+      <div class="section">
+        <h3 class="section-title">Difficulty</h3>
+        <div class="difficulty-group">
+          <button class="diff-btn active" data-diff="easy">Easy</button>
+          <button class="diff-btn" data-diff="medium">Medium</button>
+          <button class="diff-btn" data-diff="hard">Hard</button>
+        </div>
+      </div>
+ 
+      <div class="section">
+        <h3 class="section-title">Timer</h3>
+        <div class="timer-display" id="timerDisplay">00:00</div>
+        <div class="timer-controls">
+          <button class="btn-small" id="timerStartBtn">▶ Start</button>
+          <button class="btn-small" id="timerResetBtn">↺ Reset</button>
+        </div>
+      </div>
+ 
+      <div class="section">
+        <h3 class="section-title">Actions</h3>
+        <div class="action-group">
+          <button class="action-btn primary" id="generateBtn">
+            <span class="btn-icon">⚡</span> Generate
+          </button>
+          <button class="action-btn success" id="solveBtn">
+            <span class="btn-icon">🧠</span> Solve
+          </button>
+          <button class="action-btn accent" id="hintBtn">
+            <span class="btn-icon">💡</span> Hint
+          </button>
+          <button class="action-btn warning" id="checkBtn">
+            <span class="btn-icon">✓</span> Check
+          </button>
+          <button class="action-btn danger" id="resetBtn">
+            <span class="btn-icon">✕</span> Clear
+          </button>
+        </div>
+      </div>
+ 
+      <div class="section">
+        <h3 class="section-title">Sound</h3>
+        <label class="toggle-switch">
+          <input type="checkbox" id="soundToggle" checked />
+          <span class="toggle-slider"></span>
+          <span class="toggle-label">Sound Effects</span>
+        </label>
+      </div>
+ 
+      <div class="section">
+        <h3 class="section-title">Visualize</h3>
+        <label class="toggle-switch">
+          <input type="checkbox" id="visualToggle" checked />
+          <span class="toggle-slider"></span>
+          <span class="toggle-label">Animate Solver</span>
+        </label>
+        <div class="speed-control">
+          <label class="speed-label">Speed</label>
+          <input type="range" id="speedSlider" min="1" max="5" value="3" class="speed-slider" />
+          <span id="speedLabel">3×</span>
+        </div>
+      </div>
+ 
+    </aside>
+ 
+    <!-- Center: Board -->
+    <section class="board-section">
+      <div class="board-wrapper">
+        <div class="board-glow"></div>
+        <div class="sudoku-board" id="sudokuBoard"></div>
+      </div>
+ 
+      <!-- Number Pad -->
+      <div class="numpad" id="numpad">
+        <button class="num-btn" data-num="1">1</button>
+        <button class="num-btn" data-num="2">2</button>
+        <button class="num-btn" data-num="3">3</button>
+        <button class="num-btn" data-num="4">4</button>
+        <button class="num-btn" data-num="5">5</button>
+        <button class="num-btn" data-num="6">6</button>
+        <button class="num-btn" data-num="7">7</button>
+        <button class="num-btn" data-num="8">8</button>
+        <button class="num-btn" data-num="9">9</button>
+        <button class="num-btn erase-btn" data-num="0">⌫</button>
+      </div>
+ 
+      <!-- Status Bar -->
+      <div class="status-bar">
+        <div class="status-message" id="statusMessage">Select a difficulty and generate a puzzle!</div>
+        <div class="status-stats">
+          <span class="stat">Hints: <b id="hintsLeft">3</b></span>
+          <span class="stat">Errors: <b id="errorCount">0</b></span>
+        </div>
+      </div>
+    </section>
+ 
+    <!-- Right Panel: Stats & Legend -->
+    <aside class="panel panel-right">
+ 
+      <div class="section">
+        <h3 class="section-title">Algorithm</h3>
+        <div class="algo-info">
+          <div class="algo-step">
+            <span class="step-num">01</span>
+            <span class="step-text">Find empty cell</span>
+          </div>
+          <div class="algo-step">
+            <span class="step-num">02</span>
+            <span class="step-text">Try digits 1–9</span>
+          </div>
+          <div class="algo-step">
+            <span class="step-num">03</span>
+            <span class="step-text">Validate row/col/box</span>
+          </div>
+          <div class="algo-step">
+            <span class="step-num">04</span>
+            <span class="step-text">Recurse forward</span>
+          </div>
+          <div class="algo-step">
+            <span class="step-num">05</span>
+            <span class="step-text">Backtrack if stuck</span>
+          </div>
+        </div>
+      </div>
+ 
+      <div class="section">
+        <h3 class="section-title">Legend</h3>
+        <div class="legend">
+          <div class="legend-item">
+            <span class="legend-dot given"></span> Given clue
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot user"></span> Your input
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot solving"></span> Solving...
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot error"></span> Conflict
+          </div>
+          <div class="legend-item">
+            <span class="legend-dot hint"></span> Hint cell
+          </div>
+        </div>
+      </div>
+ 
+      <div class="section">
+        <h3 class="section-title">Session Stats</h3>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-val" id="statSolved">0</span>
+            <span class="stat-lbl">Solved</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-val" id="statBest">—</span>
+            <span class="stat-lbl">Best Time</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-val" id="statHints">0</span>
+            <span class="stat-lbl">Hints Used</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-val" id="statErrors">0</span>
+            <span class="stat-lbl">Total Errors</span>
+          </div>
+        </div>
+      </div>
+ 
+    </aside>
+  </main>
+ 
+  <!-- Win Modal -->
+  <div class="modal-overlay" id="winModal">
+    <div class="modal win-modal">
+      <div class="win-confetti" id="confetti"></div>
+      <div class="win-icon">🏆</div>
+      <h2 class="win-title">Puzzle Solved!</h2>
+      <p class="win-subtitle">Excellent work, solver!</p>
+      <div class="win-stats">
+        <div class="win-stat">
+          <span class="win-stat-val" id="winTime">—</span>
+          <span class="win-stat-lbl">Time</span>
+        </div>
+        <div class="win-stat">
+          <span class="win-stat-val" id="winHints">—</span>
+          <span class="win-stat-lbl">Hints Used</span>
+        </div>
+        <div class="win-stat">
+          <span class="win-stat-val" id="winErrors">—</span>
+          <span class="win-stat-lbl">Errors</span>
+        </div>
+      </div>
+      <button class="btn-modal" id="winNewGame">New Game</button>
+    </div>
   </div>
-  <!-- Custom JavaScript -->
+ 
+  <!-- Error Modal -->
+  <div class="modal-overlay" id="errorModal">
+    <div class="modal error-modal">
+      <div class="error-icon">⚠️</div>
+      <h2 class="modal-title" id="errorTitle">Oops!</h2>
+      <p class="modal-body" id="errorBody">Something went wrong.</p>
+      <button class="btn-modal" id="errorClose">Got it</button>
+    </div>
+  </div>
+ 
+  <!-- Toast notifications -->
+  <div class="toast-container" id="toastContainer"></div>
+ 
   <script src="script.js"></script>
 </body>
 </html>

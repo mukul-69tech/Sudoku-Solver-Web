@@ -1,1210 +1,920 @@
 /**
- * Apex Sudoku - Core Logic & Visualizer Engine
- * 
- * Includes:
- * 1. Sound effects synthesizer (Web Audio API)
- * 2. Sudoku generator (rotational symmetry solver-based)
- * 3. Backtracking solver (visual & instant modes)
- * 4. Input validation (real-time duplicate checks)
- * 5. Keyboard navigation (arrows + digits)
- * 6. Particle canvas confetti
+ * SudokuX — Premium Sudoku Solver
+ * Core Engine: Backtracking Algorithm (inspired by C++ recursive implementation)
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Architecture mirrors the original C++ project:
+ *   - 2D array (9×9) as board representation
+ *   - isSafe() → validates row, column, and 3×3 box (like C++ isValid)
+ *   - solveSudoku() → recursive backtracking solver
+ *   - findEmpty() → finds next empty cell (like C++ findUnassigned)
  */
-// ==========================================================================
-// 1. Audio Synthesizer Class (Web Audio API)
-// ==========================================================================
-class SoundSynth {
-  constructor() {
-    this.ctx = null;
-    this.enabled = true;
+ 
+'use strict';
+ 
+/* ═══════════════════════════════════════════════
+   1. STATE
+═══════════════════════════════════════════════ */
+const State = {
+  board:       Array.from({length: 9}, () => Array(9).fill(0)), // current board
+  solution:    Array.from({length: 9}, () => Array(9).fill(0)), // full solution
+  given:       Array.from({length: 9}, () => Array(9).fill(false)), // pre-filled cells
+  notes:       Array.from({length: 9}, () => Array.from({length:9}, ()=> new Set())), // pencil notes
+  selected:    null,   // {row, col}
+  difficulty:  'easy',
+  hintsLeft:   3,
+  hintsUsed:   0,
+  errorCount:  0,
+  totalErrors: 0,
+  totalSolved: 0,
+  totalHints:  0,
+  bestTime:    Infinity,
+  timerSecs:   0,
+  timerActive: false,
+  timerHandle: null,
+  solving:     false,
+  soundOn:     true,
+  visualOn:    true,
+  solveSpeed:  3,
+  noteMode:    false,
+};
+ 
+/* Difficulty → number of clues revealed */
+const CLUE_COUNT = { easy: 38, medium: 30, hard: 24 };
+ 
+/* ═══════════════════════════════════════════════
+   2. DOM REFS
+═══════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const Board       = $('sudokuBoard');
+const TimerDisplay= $('timerDisplay');
+const StatusMsg   = $('statusMessage');
+const HintsLeft   = $('hintsLeft');
+const ErrorCount  = $('errorCount');
+const StatSolved  = $('statSolved');
+const StatBest    = $('statBest');
+const StatHints   = $('statHints');
+const StatErrors  = $('statErrors');
+const WinModal    = $('winModal');
+const ErrorModal  = $('errorModal');
+const WinTime     = $('winTime');
+const WinHints    = $('winHints');
+const WinErrors   = $('winErrors');
+const SpeedLabel  = $('speedLabel');
+ 
+/* ═══════════════════════════════════════════════
+   3. CORE BACKTRACKING ENGINE
+   (direct port of the C++ Sudoku solver logic)
+═══════════════════════════════════════════════ */
+ 
+/**
+ * isSafe — Validates placement of `num` at (row, col)
+ * Checks: row, column, and 3×3 box — exactly as in C++
+ */
+function isSafe(board, row, col, num) {
+  // ── Row check ──
+  for (let c = 0; c < 9; c++) {
+    if (board[row][c] === num) return false;
   }
-  // Lazy initialize AudioContext on user interaction
-  init() {
-    if (!this.ctx) {
-      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-  }
-  playTone(frequency, type, duration, volume = 0.1) {
-    if (!this.enabled) return;
-    this.init();
-    try {
-      if (this.ctx.state === 'suspended') {
-        this.ctx.resume();
-      }
-      const osc = this.ctx.createOscillator();
-      const gainNode = this.ctx.createGain();
-      osc.type = type;
-      osc.frequency.setValueAtTime(frequency, this.ctx.currentTime);
-      gainNode.gain.setValueAtTime(volume, this.ctx.currentTime);
-      // Soft decay envelope
-      gainNode.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
-      osc.connect(gainNode);
-      gainNode.connect(this.ctx.destination);
-      osc.start();
-      osc.stop(this.ctx.currentTime + duration);
-    } catch (e) {
-      console.warn("Audio synthesis error:", e);
-    }
-  }
-  playClick() {
-    this.playTone(600, 'triangle', 0.08, 0.06);
-  }
-  playErase() {
-    this.playTone(280, 'triangle', 0.1, 0.06);
-  }
-  playError() {
-    this.playTone(160, 'sawtooth', 0.2, 0.12);
-    setTimeout(() => this.playTone(130, 'sawtooth', 0.18, 0.12), 80);
-  }
-  playHint() {
-    this.playTone(523.25, 'sine', 0.15, 0.08); // C5
-    setTimeout(() => this.playTone(659.25, 'sine', 0.15, 0.08), 90); // E5
-    setTimeout(() => this.playTone(783.99, 'sine', 0.22, 0.08), 180); // G5
-  }
-  playSuccess() {
-    const notes = [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50]; // C Major scale arpeggio
-    notes.forEach((freq, idx) => {
-      setTimeout(() => {
-        this.playTone(freq, 'sine', 0.45, 0.1);
-      }, idx * 100);
-    });
-  }
-}
-const sounds = new SoundSynth();
-// ==========================================================================
-// 2. Confetti Victory Particles
-// ==========================================================================
-const canvas = document.getElementById('confetti-canvas');
-const ctx = canvas.getContext('2d');
-let particles = [];
-let confettiActive = false;
-function resizeCanvas() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-class ConfettiParticle {
-  constructor() {
-    this.x = Math.random() * canvas.width;
-    this.y = Math.random() * canvas.height - canvas.height;
-    this.size = Math.random() * 8 + 6;
-    this.color = `hsl(${Math.random() * 360}, 90%, 55%)`;
-    this.speedY = Math.random() * 4 + 2;
-    this.speedX = Math.random() * 3 - 1.5;
-    this.rotation = Math.random() * 360;
-    this.rotationSpeed = Math.random() * 4 - 2;
-  }
-  update() {
-    this.y += this.speedY;
-    this.x += this.speedX;
-    this.rotation += this.rotationSpeed;
-    if (this.y > canvas.height) {
-      this.y = -20;
-      this.x = Math.random() * canvas.width;
-    }
-  }
-  draw() {
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    ctx.rotate((this.rotation * Math.PI) / 180);
-    ctx.fillStyle = this.color;
-    ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
-    ctx.restore();
-  }
-}
-function startConfetti() {
-  resizeCanvas();
-  window.addEventListener('resize', resizeCanvas);
-  particles = [];
-  for (let i = 0; i < 120; i++) {
-    particles.push(new ConfettiParticle());
-  }
-  canvas.style.display = 'block';
-  confettiActive = true;
-  animateConfetti();
-}
-function stopConfetti() {
-  confettiActive = false;
-  canvas.style.display = 'none';
-  window.removeEventListener('resize', resizeCanvas);
-}
-function animateConfetti() {
-  if (!confettiActive) return;
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  particles.forEach(p => {
-    p.update();
-    p.draw();
-  });
-  requestAnimationFrame(animateConfetti);
-}
-// ==========================================================================
-// 3. Application State & DOM Selections
-// ==========================================================================
-let boardGrid = Array(9).fill(null).map(() => Array(9).fill(0));
-let initialGrid = Array(9).fill(null).map(() => Array(9).fill(0));
-let solvedSolution = Array(9).fill(null).map(() => Array(9).fill(0));
-// Game Stats
-let gameTime = 0;
-let timerInterval = null;
-let timerPaused = false;
-let gameActive = false;
-let currentDifficulty = "medium";
-let hintsUsed = 0;
-// Solver Visualizer variables
-let solveActive = false;
-let solvePaused = false;
-let stepsCount = 0;
-let stepRequested = false;
-let stepResolve = null;
-// DOM Elements
-const boardContainer = document.getElementById('sudoku-board');
-const emptyCellsDisplay = document.getElementById('empty-cells-count');
-const errorCountDisplay = document.getElementById('error-count');
-const difficultyDisplay = document.getElementById('current-difficulty-display');
-const timerDisplay = document.getElementById('game-timer');
-const timerPlayPauseBtn = document.getElementById('timer-play-pause-btn');
-const difficultySelect = document.getElementById('difficulty-select');
-const generateBtn = document.getElementById('generate-btn');
-const hintBtn = document.getElementById('hint-btn');
-const checkBtn = document.getElementById('check-btn');
-const resetBtn = document.getElementById('reset-btn');
-const clearBtn = document.getElementById('clear-btn');
-// Solver Elements
-const tabPlay = document.getElementById('tab-play');
-const tabSolve = document.getElementById('tab-solve');
-const panePlay = document.getElementById('pane-play');
-const paneSolve = document.getElementById('pane-solve');
-const solveVisualBtn = document.getElementById('solve-visual-btn');
-const solveInstantBtn = document.getElementById('solve-instant-btn');
-const speedRange = document.getElementById('speed-range');
-const visPauseBtn = document.getElementById('vis-pause-btn');
-const visStepBtn = document.getElementById('vis-step-btn');
-const visStopBtn = document.getElementById('vis-stop-btn');
-const visStatusText = document.getElementById('visualizer-status-text');
-const backtrackCounterDisplay = document.getElementById('backtrack-counter');
-// Keypad
-const keypadButtons = document.querySelectorAll('.key-btn');
-// Theme & Sound toggles
-const themeToggleBtn = document.getElementById('theme-toggle-btn');
-const soundToggleBtn = document.getElementById('sound-toggle-btn');
-const infoToggleBtn = document.getElementById('info-toggle-btn');
-const infoCloseBtn = document.getElementById('info-close-btn');
-const infoModal = document.getElementById('info-modal');
-// Success Modal Elements
-const successModal = document.getElementById('success-modal');
-const successNewGameBtn = document.getElementById('success-new-game-btn');
-const successDifficulty = document.getElementById('success-difficulty');
-const successTime = document.getElementById('success-time');
-const successHints = document.getElementById('success-hints');
-// Track focused cell coordinates
-let selectedCell = null; // { row, col, element }
-// ==========================================================================
-// 4. Initialize Board DOM
-// ==========================================================================
-function initBoardDOM() {
-  boardContainer.innerHTML = '';
+  // ── Column check ──
   for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      const cell = document.createElement('div');
-      cell.classList.add('sudoku-cell');
-      
-      // Thick 3x3 block borders
-      if (c === 2 || c === 5) cell.classList.add('border-right-thick');
-      if (r === 2 || r === 5) cell.classList.add('border-bottom-thick');
-      
-      const input = document.createElement('input');
-      input.type = 'tel'; // mobile friendly numeric keypad selector
-      input.inputMode = 'numeric';
-      input.maxLength = 1;
-      input.dataset.row = r;
-      input.dataset.col = c;
-      input.setAttribute('aria-label', `Sudoku cell Row ${r + 1} Column ${c + 1}`);
-      
-      cell.appendChild(input);
-      boardContainer.appendChild(cell);
-      
-      // Attach events to cell input
-      setupCellEvents(input, cell, r, c);
-    }
+    if (board[r][col] === num) return false;
   }
-}
-// Attach Event Listeners to each cell
-function setupCellEvents(input, cell, r, c) {
-  // Focus Event - Highlight row, column, block
-  input.addEventListener('focus', () => {
-    if (solveActive) {
-      input.blur();
-      return;
-    }
-    selectedCell = { row: r, col: c, element: input };
-    highlightPeers(r, c);
-    cell.classList.add('active-cell');
-  });
-  // Blur Event - Remove highlights
-  input.addEventListener('blur', () => {
-    clearPeerHighlights();
-    cell.classList.remove('active-cell');
-  });
-  // Numeric input constraints
-  input.addEventListener('input', (e) => {
-    if (solveActive) return;
-    
-    const value = input.value;
-    // Allow only numbers 1-9
-    if (/^[1-9]$/.test(value)) {
-      boardGrid[r][c] = parseInt(value);
-      cell.classList.add('cell-user');
-      cell.classList.remove('cell-solved');
-      sounds.playClick();
-      
-      // Auto move focus to next empty cell (quality of life feature)
-      // trigger real-time duplicate checks
-      validateRealTime();
-      checkVictoryState();
-    } else {
-      // invalid input - clear cell
-      input.value = '';
-      boardGrid[r][c] = 0;
-      cell.classList.remove('cell-user', 'cell-solved', 'cell-error');
-      sounds.playErase();
-      validateRealTime();
-    }
-    updateCellStats();
-  });
-  // Arrow navigation & keyboard hotkeys
-  input.addEventListener('keydown', (e) => {
-    if (solveActive) return;
-    
-    let nextRow = r;
-    let nextCol = c;
-    
-    switch (e.key) {
-      case 'ArrowUp':
-        nextRow = Math.max(0, r - 1);
-        break;
-      case 'ArrowDown':
-        nextRow = Math.min(8, r + 1);
-        break;
-      case 'ArrowLeft':
-        nextCol = Math.max(0, c - 1);
-        break;
-      case 'ArrowRight':
-        nextCol = Math.min(8, c + 1);
-        break;
-      case 'Backspace':
-      case 'Delete':
-        // Handle clear
-        if (input.value !== '') {
-          input.value = '';
-          boardGrid[r][c] = 0;
-          cell.classList.remove('cell-user', 'cell-solved', 'cell-error');
-          sounds.playErase();
-          validateRealTime();
-          updateCellStats();
-        }
-        e.preventDefault();
-        return;
-      default:
-        // Let standard characters (like numbers) pass through to input listener
-        return;
-    }
-    
-    // Focus next cell
-    if (nextRow !== r || nextCol !== c) {
-      focusCell(nextRow, nextCol);
-      e.preventDefault();
-    }
-  });
-}
-function focusCell(r, c) {
-  const targetInput = boardContainer.querySelector(`input[data-row="${r}"][data-col="${c}"]`);
-  if (targetInput) {
-    targetInput.focus();
-  }
-}
-// Highlight all matching row, col, and 3x3 box coordinates
-function highlightPeers(row, col) {
-  const inputs = boardContainer.querySelectorAll('input');
-  const boxRowStart = Math.floor(row / 3) * 3;
-  const boxColStart = Math.floor(col / 3) * 3;
-  inputs.forEach(input => {
-    const r = parseInt(input.dataset.row);
-    const c = parseInt(input.dataset.col);
-    const cellDiv = input.parentElement;
-    // Highlight peers (same row, col, or box)
-    if (r === row || c === col || (r >= boxRowStart && r < boxRowStart + 3 && c >= boxColStart && c < boxColStart + 3)) {
-      cellDiv.classList.add('highlight-peer');
-    }
-  });
-}
-function clearPeerHighlights() {
-  const cells = boardContainer.querySelectorAll('.sudoku-cell');
-  cells.forEach(cell => cell.classList.remove('highlight-peer'));
-}
-// ==========================================================================
-// 5. Sudoku Logic Engine (Backtracking Solver & Grid Verification)
-// ==========================================================================
-// Standard Sudoku constraint check
-function isValid(grid, row, col, val) {
-  for (let i = 0; i < 9; i++) {
-    // Check row
-    if (grid[row][i] === val && i !== col) return false;
-    // Check col
-    if (grid[i][col] === val && i !== row) return false;
-    // Check 3x3 subgrid
-    const boxRow = 3 * Math.floor(row / 3) + Math.floor(i / 3);
-    const boxCol = 3 * Math.floor(col / 3) + (i % 3);
-    if (grid[boxRow][boxCol] === val && (boxRow !== row || boxCol !== col)) return false;
-  }
-  return true;
-}
-// Standard synchronous solver (returns true/false, fills grid in place)
-function solveSudoku(grid) {
-  for (let row = 0; row < 9; row++) {
-    for (let col = 0; col < 9; col++) {
-      if (grid[row][col] === 0) {
-        for (let num = 1; num <= 9; num++) {
-          if (isValid(grid, row, col, num)) {
-            grid[row][col] = num;
-            if (solveSudoku(grid)) {
-              return true;
-            }
-            grid[row][col] = 0; // Backtrack
-          }
-        }
-        return false;
-      }
+  // ── 3×3 Box check ──
+  const boxRow = Math.floor(row / 3) * 3;
+  const boxCol = Math.floor(col / 3) * 3;
+  for (let r = boxRow; r < boxRow + 3; r++) {
+    for (let c = boxCol; c < boxCol + 3; c++) {
+      if (board[r][c] === num) return false;
     }
   }
   return true;
 }
-// Real-Time board validation highlights
-function validateRealTime() {
-  const inputs = boardContainer.querySelectorAll('input');
-  
-  // Reset errors first
-  inputs.forEach(input => {
-    input.parentElement.classList.remove('cell-error');
-  });
-  const conflicts = new Set();
+ 
+/**
+ * findEmpty — Finds next empty cell (value === 0)
+ * Returns {row, col} or null if board is complete
+ */
+function findEmpty(board) {
   for (let r = 0; r < 9; r++) {
     for (let c = 0; c < 9; c++) {
-      const val = boardGrid[r][c];
-      if (val !== 0) {
-        // If not valid in current grid, add cell input to conflicts
-        if (!isValid(boardGrid, r, c, val)) {
-          conflicts.add(`${r}-${c}`);
-          // Also trace and add conflicting peers to highlight what is wrong
-          addConflictingPeers(r, c, val, conflicts);
-        }
-      }
+      if (board[r][c] === 0) return {row: r, col: c};
     }
   }
-  // Highlight all conflicting cells in red
-  let count = 0;
-  conflicts.forEach(coords => {
-    const [r, c] = coords.split('-').map(Number);
-    const input = boardContainer.querySelector(`input[data-row="${r}"][data-col="${c}"]`);
-    if (input && !input.parentElement.classList.contains('cell-initial')) {
-      input.parentElement.classList.add('cell-error');
-      count++;
-    }
-  });
-  errorCountDisplay.textContent = Math.ceil(count / 2); // approximate conflicts count
-  
-  // Play error sound on new invalid input
-  if (count > 0 && selectedCell) {
-    const activeVal = boardGrid[selectedCell.row][selectedCell.col];
-    if (activeVal !== 0 && !isValid(boardGrid, selectedCell.row, selectedCell.col, activeVal)) {
-      sounds.playError();
-    }
-  }
+  return null; // Board solved!
 }
-// Find actual indices that cause conflicts to highlight them together
-function addConflictingPeers(row, col, val, conflictsSet) {
-  const boxRowStart = Math.floor(row / 3) * 3;
-  const boxColStart = Math.floor(col / 3) * 3;
-  for (let i = 0; i < 9; i++) {
-    // Check row conflicts
-    if (boardGrid[row][i] === val && i !== col) {
-      conflictsSet.add(`${row}-${i}`);
-      conflictsSet.add(`${row}-${col}`);
-    }
-    // Check col conflicts
-    if (boardGrid[i][col] === val && i !== row) {
-      conflictsSet.add(`${i}-${col}`);
-      conflictsSet.add(`${row}-${col}`);
-    }
-    // Check 3x3 subgrid conflicts
-    const boxRow = boxRowStart + Math.floor(i / 3);
-    const boxCol = boxColStart + (i % 3);
-    if (boardGrid[boxRow][boxCol] === val && (boxRow !== row || boxCol !== col)) {
-      conflictsSet.add(`${boxRow}-${boxCol}`);
-      conflictsSet.add(`${row}-${col}`);
-    }
-  }
-}
-// ==========================================================================
-// 6. Sudoku Generator (rotational symmetry matching difficulty)
-// ==========================================================================
-function generateNewPuzzle(difficulty) {
-  sounds.init();
-  
-  // 1. Reset board states
-  boardGrid = Array(9).fill(null).map(() => Array(9).fill(0));
-  initialGrid = Array(9).fill(null).map(() => Array(9).fill(0));
-  solvedSolution = Array(9).fill(null).map(() => Array(9).fill(0));
-  
-  // 2. Solve empty board with randomized number ordering to make a unique full grid
-  fillGridRandom(solvedSolution);
-  
-  // Copy full grid solution to starting grid
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      boardGrid[r][c] = solvedSolution[r][c];
-    }
-  }
-  // 3. Remove cells symmetrically based on difficulty
-  let cluesToKeep = 45; // Easy
-  if (difficulty === 'medium') cluesToKeep = 35;
-  if (difficulty === 'hard') cluesToKeep = 25;
-  removeCellsSymmetrically(boardGrid, 81 - cluesToKeep);
-  // 4. Save initial puzzle layout
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      initialGrid[r][c] = boardGrid[r][c];
-    }
-  }
-  // Update DOM representation
-  renderBoardFromGrid();
-  
-  // Reset Timer
-  resetTimer();
-  startTimer();
-  hintsUsed = 0;
-  gameActive = true;
-  
-  currentDifficulty = difficulty;
-  difficultyDisplay.textContent = difficulty;
-  difficultyDisplay.className = `difficulty-tag diff-${difficulty}`;
-}
-// Fills grid using randomized backtracking solver
-function fillGridRandom(grid) {
-  for (let row = 0; row < 9; row++) {
-    for (let col = 0; col < 9; col++) {
-      if (grid[row][col] === 0) {
-        const numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-        shuffleArray(numbers);
-        
-        for (let num of numbers) {
-          if (isValid(grid, row, col, num)) {
-            grid[row][col] = num;
-            if (fillGridRandom(grid)) {
-              return true;
-            }
-            grid[row][col] = 0;
-          }
-        }
-        return false;
-      }
-    }
-  }
-  return true;
-}
-// Randomize arrays (Fisher-Yates)
-function shuffleArray(array) {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
-  }
-}
-// Remove cells symmetrically (rotational symmetry)
-function removeCellsSymmetrically(grid, cellsToRemove) {
-  let attempts = 0;
-  let removed = 0;
-  
-  while (removed < cellsToRemove && attempts < 1000) {
-    const r = Math.floor(Math.random() * 9);
-    const c = Math.floor(Math.random() * 9);
-    
-    // Check symmetric cell (rotational 180 degrees)
-    const symR = 8 - r;
-    const symC = 8 - c;
-    
-    if (grid[r][c] !== 0) {
-      const backupVal = grid[r][c];
-      const backupSymVal = grid[symR][symC];
-      
-      grid[r][c] = 0;
-      grid[symR][symC] = 0;
-      
-      // Calculate how many were removed
-      const removedCount = (r === symR && c === symC) ? 1 : 2;
-      
-      // If puzzle remains solvable, count as successfully removed
-      // To keep generation extremely fast, we assume symmetry maintains solvable properties.
-      // High-end generators check uniqueness here, but for smooth web play we remove symmetric cells directly.
-      removed += removedCount;
-    }
-    attempts++;
-  }
-}
-// Render grid layout onto DOM
-function renderBoardFromGrid() {
-  const inputs = boardContainer.querySelectorAll('input');
-  inputs.forEach(input => {
-    const r = parseInt(input.dataset.row);
-    const c = parseInt(input.dataset.col);
-    const cellDiv = input.parentElement;
-    const val = boardGrid[r][c];
-    
-    // Clear state classes
-    cellDiv.className = 'sudoku-cell';
-    if (c === 2 || c === 5) cellDiv.classList.add('border-right-thick');
-    if (r === 2 || r === 5) cellDiv.classList.add('border-bottom-thick');
-    
-    if (val !== 0) {
-      input.value = val;
-      // If it is in the initial layout, lock it
-      if (initialGrid[r][c] !== 0) {
-        cellDiv.classList.add('cell-initial');
-        input.readOnly = true;
-      } else {
-        cellDiv.classList.add('cell-user');
-        input.readOnly = false;
-      }
-    } else {
-      input.value = '';
-      input.readOnly = false;
-    }
-  });
-  updateCellStats();
-  validateRealTime();
-}
-function updateCellStats() {
-  let emptyCount = 0;
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      if (boardGrid[r][c] === 0) emptyCount++;
-    }
-  }
-  emptyCellsDisplay.textContent = emptyCount;
-}
-// ==========================================================================
-// 7. Interactive Backtracking Visualization
-// ==========================================================================
-async function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-// Check pause states, step trigger, and speed adjustments during animation
-async function checkPauseAndDelay() {
-  // If paused, wait on promise resolve
-  while (solvePaused && solveActive) {
-    visStatusText.textContent = "Solver Paused";
-    await new Promise(resolve => {
-      stepResolve = resolve;
-    });
-  }
-  
-  if (!solveActive) return;
-  visStatusText.textContent = "Searching solution...";
-  // Calculate speed slider values
-  const speed = parseInt(speedRange.value);
-  let delay = 0;
-  if (speed < 100) {
-    // scale from 800ms down to 1ms
-    delay = Math.pow((100 - speed) / 25, 2) * 50;
-  }
-  
-  if (delay > 0) {
-    await sleep(delay);
-  }
-}
-// Helper to find next empty cell on the board
-function findEmpty(grid) {
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      if (grid[r][c] === 0) return [r, c];
-    }
-  }
-  return null;
-}
-// Set individual cell visual highlights during visual solver backtracking
-function setCellVisual(row, col, value, state) {
-  const input = boardContainer.querySelector(`input[data-row="${row}"][data-col="${col}"]`);
-  if (!input) return;
-  const cellDiv = input.parentElement;
-  cellDiv.className = 'sudoku-cell';
-  
-  // Keep thick grid borders
-  if (col === 2 || col === 5) cellDiv.classList.add('border-right-thick');
-  if (row === 2 || row === 5) cellDiv.classList.add('border-bottom-thick');
-  if (value > 0) {
-    input.value = value;
-    boardGrid[row][col] = value;
-  } else {
-    input.value = '';
-    boardGrid[row][col] = 0;
-  }
-  // Apply state visual styling classes
-  if (state === 'searching') {
-    cellDiv.classList.add('cell-searching');
-  } else if (state === 'backtrack') {
-    cellDiv.classList.add('cell-backtracked');
-  } else if (state === 'placed') {
-    cellDiv.classList.add('cell-valid-placed');
-  } else if (state === 'solved') {
-    cellDiv.classList.add('cell-solved');
-  }
-}
-// The core Visual Backtracking algorithm loop
-async function visualSolve() {
-  const emptyCell = findEmpty(boardGrid);
-  if (!emptyCell) {
-    return true; // Complete!
-  }
-  const [row, col] = emptyCell;
+ 
+/**
+ * solveSudoku — Recursive Backtracking Algorithm
+ * Identical logic to the C++ recursive solver:
+ *   1. Find empty cell
+ *   2. Try digits 1–9
+ *   3. If safe → place & recurse
+ *   4. If recursion fails → backtrack (reset to 0)
+ * Returns true if solved, false if unsolvable
+ */
+function solveSudoku(board) {
+  const empty = findEmpty(board);
+  if (!empty) return true; // Base case: no empty cell → solved!
+ 
+  const {row, col} = empty;
+ 
   for (let num = 1; num <= 9; num++) {
-    if (!solveActive) return false; // Force stop execution
-    stepsCount++;
-    backtrackCounterDisplay.textContent = `Steps: ${stepsCount}`;
-    // Visualize the step attempt
-    setCellVisual(row, col, num, 'searching');
-    sounds.playClick();
-    await checkPauseAndDelay();
-    if (!solveActive) return false;
-    if (isValid(boardGrid, row, col, num)) {
-      // Valid placement visual trigger
-      setCellVisual(row, col, num, 'placed');
-      await checkPauseAndDelay();
-      if (!solveActive) return false;
-      // Recurse
-      if (await visualSolve()) {
-        setCellVisual(row, col, num, 'solved');
-        return true;
-      }
+    if (isSafe(board, row, col, num)) {
+      board[row][col] = num;         // Place number
+      if (solveSudoku(board)) return true; // Recurse
+      board[row][col] = 0;           // Backtrack
     }
-    // Backtracking step visual trigger
-    if (!solveActive) return false;
-    setCellVisual(row, col, num, 'backtrack');
-    sounds.playErase();
-    await checkPauseAndDelay();
-    if (!solveActive) return false;
-    // Reset cell
-    setCellVisual(row, col, 0, 'none');
+  }
+  return false; // Trigger backtracking in caller
+}
+ 
+/**
+ * isValidBoard — Checks if existing filled cells violate Sudoku rules
+ * Used for input validation
+ */
+function isValidBoard(board) {
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      const num = board[r][c];
+      if (num === 0) continue;
+      board[r][c] = 0;
+      const safe = isSafe(board, r, c, num);
+      board[r][c] = num;
+      if (!safe) return false;
+    }
+  }
+  return true;
+}
+ 
+/**
+ * countSolutions — Counts solutions (≤ 2) to check uniqueness
+ */
+function countSolutions(board, limit = 2) {
+  const empty = findEmpty(board);
+  if (!empty) return 1;
+  const {row, col} = empty;
+  let count = 0;
+  for (let num = 1; num <= 9; num++) {
+    if (isSafe(board, row, col, num)) {
+      board[row][col] = num;
+      count += countSolutions(board, limit);
+      board[row][col] = 0;
+      if (count >= limit) return count;
+    }
+  }
+  return count;
+}
+ 
+/* ═══════════════════════════════════════════════
+   4. PUZZLE GENERATION
+═══════════════════════════════════════════════ */
+ 
+/** Generates a fully solved board using randomised backtracking */
+function generateFullBoard() {
+  const board = Array.from({length: 9}, () => Array(9).fill(0));
+  fillBoard(board);
+  return board;
+}
+ 
+function fillBoard(board) {
+  const empty = findEmpty(board);
+  if (!empty) return true;
+  const {row, col} = empty;
+  const nums = shuffle([1,2,3,4,5,6,7,8,9]);
+  for (const num of nums) {
+    if (isSafe(board, row, col, num)) {
+      board[row][col] = num;
+      if (fillBoard(board)) return true;
+      board[row][col] = 0;
+    }
   }
   return false;
 }
-// Start Visual Solver Mode
-async function startVisualSolve() {
-  if (solveActive) return;
-  
-  // Blur focused cell to avoid keyboard layout interference
-  if (selectedCell) {
-    selectedCell.element.blur();
-  }
-  // Verify that board currently has no conflicts before starting solver
-  let hasErrors = false;
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      const val = boardGrid[r][c];
-      if (val !== 0 && !isValid(boardGrid, r, c, val)) {
-        hasErrors = true;
+ 
+/** Creates a puzzle by removing cells from full board */
+function generatePuzzle(difficulty) {
+  const full = generateFullBoard();
+  const solution = full.map(r => [...r]);
+  const puzzle   = full.map(r => [...r]);
+  const clues    = CLUE_COUNT[difficulty];
+  const toRemove = 81 - clues;
+ 
+  const positions = shuffle([...Array(81).keys()]);
+  let removed = 0;
+ 
+  for (const pos of positions) {
+    if (removed >= toRemove) break;
+    const r = Math.floor(pos / 9);
+    const c = pos % 9;
+    const backup = puzzle[r][c];
+    puzzle[r][c] = 0;
+ 
+    // Ensure unique solution (skip heavy check on hard for speed)
+    if (difficulty !== 'hard') {
+      const copy = puzzle.map(row => [...row]);
+      if (countSolutions(copy, 2) !== 1) {
+        puzzle[r][c] = backup;
+        continue;
       }
     }
+    removed++;
   }
-  if (hasErrors) {
-    alert("Please resolve existing board errors highlighted in red before starting the solver.");
-    sounds.playError();
-    return;
-  }
-  // Set Visual State
-  solveActive = true;
-  solvePaused = false;
-  stepsCount = 0;
-  
-  // Manage controls UI states
-  toggleControlsForSolver(true);
-  visStatusText.textContent = "Searching solution...";
-  backtrackCounterDisplay.textContent = `Steps: 0`;
-  // Play click starting tone
-  sounds.playHint();
-  const success = await visualSolve();
-  // Reset solver states
-  solveActive = false;
-  toggleControlsForSolver(false);
-  if (success) {
-    visStatusText.textContent = "Board Solved Successfully!";
-    sounds.playSuccess();
-    triggerVictory();
-  } else {
-    if (stepsCount > 0) {
-      visStatusText.textContent = "No solution found!";
-      sounds.playError();
-    } else {
-      visStatusText.textContent = "Ready to Solve";
+ 
+  return {puzzle, solution};
+}
+ 
+/* ═══════════════════════════════════════════════
+   5. UI — BOARD RENDERING
+═══════════════════════════════════════════════ */
+ 
+function initBoard() {
+  Board.innerHTML = '';
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+ 
+      // Note grid inside cell
+      const notes = document.createElement('div');
+      notes.className = 'cell-notes';
+      notes.id = `notes-${r}-${c}`;
+      for (let n = 1; n <= 9; n++) {
+        const nd = document.createElement('span');
+        nd.className = 'cell-note';
+        nd.id = `note-${r}-${c}-${n}`;
+        notes.appendChild(nd);
+      }
+      cell.appendChild(notes);
+ 
+      cell.addEventListener('click', () => onCellClick(r, c));
+      Board.appendChild(cell);
     }
   }
 }
-// Instant synchronous solver trigger
-function startInstantSolve() {
-  if (solveActive) return;
-  // Make backup of grid before checking
-  const checkGrid = boardGrid.map(row => [...row]);
-  
-  // Quick pre-validation
-  let hasErrors = false;
+ 
+function renderBoard() {
   for (let r = 0; r < 9; r++) {
     for (let c = 0; c < 9; c++) {
-      const val = checkGrid[r][c];
-      if (val !== 0) {
-        checkGrid[r][c] = 0;
-        if (!isValid(checkGrid, r, c, val)) {
-          hasErrors = true;
-        }
-        checkGrid[r][c] = val;
+      renderCell(r, c);
+    }
+  }
+}
+ 
+function renderCell(r, c) {
+  const cell = getCell(r, c);
+  const val  = State.board[r][c];
+  const notesEl = document.getElementById(`notes-${r}-${c}`);
+ 
+  // Clear state classes
+  cell.classList.remove('given','user','error','hint','solving','backtrack','solve-animate');
+  cell.textContent = '';
+  notesEl.style.display = 'none';
+ 
+  if (val !== 0) {
+    cell.appendChild(notesEl); // re-add (textContent clears children)
+    cell.textContent = val;
+    cell.appendChild(notesEl);
+    notesEl.style.display = 'none';
+ 
+    if (State.given[r][c]) cell.classList.add('given');
+    else cell.classList.add('user');
+  } else {
+    // Show notes if any
+    const cellNotes = State.notes[r][c];
+    if (cellNotes.size > 0) {
+      for (let n = 1; n <= 9; n++) {
+        const nd = document.getElementById(`note-${r}-${c}-${n}`);
+        nd.textContent = cellNotes.has(n) ? n : '';
+      }
+      notesEl.style.display = 'grid';
+    }
+  }
+}
+ 
+function getCell(r, c) {
+  return Board.children[r * 9 + c];
+}
+ 
+function highlightSelection(r, c) {
+  // Clear previous
+  for (let i = 0; i < 81; i++) {
+    Board.children[i].classList.remove('selected','related','same-num');
+  }
+  if (r === null) return;
+ 
+  const val = State.board[r][c];
+  for (let row = 0; row < 9; row++) {
+    for (let col = 0; col < 9; col++) {
+      const cell = getCell(row, col);
+      if (row === r && col === c) {
+        cell.classList.add('selected');
+      } else if (
+        row === r || col === c ||
+        (Math.floor(row/3) === Math.floor(r/3) && Math.floor(col/3) === Math.floor(c/3))
+      ) {
+        cell.classList.add('related');
+      }
+      if (val !== 0 && State.board[row][col] === val) {
+        cell.classList.add('same-num');
       }
     }
   }
-  if (hasErrors) {
-    alert("Please resolve existing board errors highlighted in red first.");
-    sounds.playError();
+}
+ 
+/* ═══════════════════════════════════════════════
+   6. EVENTS
+═══════════════════════════════════════════════ */
+ 
+function onCellClick(r, c) {
+  if (State.solving) return;
+  State.selected = {row: r, col: c};
+  highlightSelection(r, c);
+  updateNumpadActive();
+}
+ 
+function onNumInput(num) {
+  if (State.solving) return;
+  const sel = State.selected;
+  if (!sel) { toast('Select a cell first!', 'info'); return; }
+  const {row, col} = sel;
+  if (State.given[row][col]) { playSound('error'); return; }
+ 
+  if (State.noteMode) {
+    // Toggle note
+    const notes = State.notes[row][col];
+    if (num === 0) { notes.clear(); }
+    else { notes.has(num) ? notes.delete(num) : notes.add(num); }
+    renderCell(row, col);
     return;
   }
-  const solved = solveSudoku(boardGrid);
-  
-  if (solved) {
-    sounds.playSuccess();
-    renderSolvedBoard();
-    triggerVictory();
-  } else {
-    alert("No solution exists for this configuration!");
-    sounds.playError();
+ 
+  if (num === 0) {
+    State.board[row][col] = 0;
+    State.notes[row][col].clear();
+    renderCell(row, col);
+    highlightSelection(row, col);
+    return;
   }
+ 
+  // Validate move
+  const prev = State.board[row][col];
+  State.board[row][col] = num;
+ 
+  if (!isSafe(State.board, row, col, num)) {
+    // Invalid move
+    State.board[row][col] = num; // keep it visible but mark error
+    getCell(row, col).classList.add('error');
+    setTimeout(() => {
+      getCell(row, col).classList.remove('error');
+    }, 600);
+    State.errorCount++;
+    State.totalErrors++;
+    updateStats();
+    playSound('error');
+    setStatus(`⚠ Conflict detected at (${row+1},${col+1})!`);
+    return;
+  }
+ 
+  // Clear notes in affected cells
+  clearNotesFor(row, col, num);
+ 
+  renderCell(row, col);
+  highlightSelection(row, col);
+  updateNumpadActive();
+  playSound('place');
+ 
+  // Check win
+  if (findEmpty(State.board) === null) checkWin();
 }
-function renderSolvedBoard() {
-  const inputs = boardContainer.querySelectorAll('input');
-  inputs.forEach(input => {
-    const r = parseInt(input.dataset.row);
-    const c = parseInt(input.dataset.col);
-    const cellDiv = input.parentElement;
-    
-    input.value = boardGrid[r][c];
-    
-    if (initialGrid[r][c] === 0) {
-      cellDiv.className = 'sudoku-cell cell-solved';
-      if (c === 2 || c === 5) cellDiv.classList.add('border-right-thick');
-      if (r === 2 || r === 5) cellDiv.classList.add('border-bottom-thick');
-    }
+ 
+function clearNotesFor(row, col, num) {
+  // Clear num from row, col, box notes
+  for (let i = 0; i < 9; i++) {
+    State.notes[row][i].delete(num);
+    State.notes[i][col].delete(num);
+  }
+  const br = Math.floor(row/3)*3, bc = Math.floor(col/3)*3;
+  for (let r = br; r < br+3; r++)
+    for (let c = bc; c < bc+3; c++)
+      State.notes[r][c].delete(num);
+}
+ 
+function updateNumpadActive() {
+  const sel = State.selected;
+  if (!sel) return;
+  const val = State.board[sel.row][sel.col];
+  document.querySelectorAll('.num-btn').forEach(btn => {
+    btn.classList.toggle('active', +btn.dataset.num === val && val !== 0);
   });
-  updateCellStats();
-  validateRealTime();
 }
-function toggleControlsForSolver(isSolving) {
-  // Disable game action features during solver animation
-  generateBtn.disabled = isSolving;
-  hintBtn.disabled = isSolving;
-  checkBtn.disabled = isSolving;
-  resetBtn.disabled = isSolving;
-  clearBtn.disabled = isSolving;
-  difficultySelect.disabled = isSolving;
-  
-  tabPlay.style.pointerEvents = isSolving ? 'none' : 'auto';
-  tabPlay.style.opacity = isSolving ? '0.4' : '1';
-  
-  solveVisualBtn.disabled = isSolving;
-  solveInstantBtn.disabled = isSolving;
-  
-  // Enable visual controls HUD
-  visPauseBtn.disabled = !isSolving;
-  visStopBtn.disabled = !isSolving;
-  // Step button is only enabled when solver is active AND paused
-  visStepBtn.disabled = true;
-  if (!isSolving) {
-    visPauseBtn.querySelector('i').className = 'fa-solid fa-pause';
-    solvePaused = false;
-  }
-}
-// Stop Visual Solver and restore board values
-function stopVisualSolver() {
-  if (!solveActive) return;
-  solveActive = false;
-  solvePaused = false;
-  
-  if (stepResolve) {
-    stepResolve();
-    stepResolve = null;
-  }
-  // Restore board to initial state
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      boardGrid[r][c] = initialGrid[r][c];
-    }
-  }
-  
-  renderBoardFromGrid();
-  toggleControlsForSolver(false);
-  visStatusText.textContent = "Solver Stopped. Board Resetted.";
-  sounds.playErase();
-}
-// Pause and Resume visual solver
-function toggleVisualPause() {
-  if (!solveActive) return;
-  solvePaused = !solvePaused;
-  
-  if (solvePaused) {
-    visPauseBtn.querySelector('i').className = 'fa-solid fa-play';
-    visPauseBtn.title = "Resume Solver";
-    visStepBtn.disabled = false;
-    visStatusText.textContent = "Solver Paused";
-  } else {
-    visPauseBtn.querySelector('i').className = 'fa-solid fa-pause';
-    visPauseBtn.title = "Pause Solver";
-    visStepBtn.disabled = true;
-    
-    // Resolve wait promise
-    if (stepResolve) {
-      stepResolve();
-      stepResolve = null;
-    }
-  }
-}
-// Single step debugging execution
-function stepVisualSolver() {
-  if (!solveActive || !solvePaused) return;
-  
-  if (stepResolve) {
-    stepResolve();
-    stepResolve = null;
-  }
-}
-// ==========================================================================
-// 8. Keypad, Hints & Manual checks
-// ==========================================================================
-function setupKeypadEvents() {
-  keypadButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (solveActive || !selectedCell) return;
-      
-      const val = btn.dataset.value;
-      const { row, col, element } = selectedCell;
-      // Check if locked clue
-      if (initialGrid[row][col] !== 0) return;
-      if (val === 'erase') {
-        element.value = '';
-        boardGrid[row][col] = 0;
-        element.parentElement.className = 'sudoku-cell active-cell';
-        if (col === 2 || col === 5) element.parentElement.classList.add('border-right-thick');
-        if (row === 2 || row === 5) element.parentElement.classList.add('border-bottom-thick');
-        
-        sounds.playErase();
-        validateRealTime();
-      } else {
-        element.value = val;
-        boardGrid[row][col] = parseInt(val);
-        element.parentElement.classList.add('cell-user');
-        sounds.playClick();
-        
-        validateRealTime();
-        checkVictoryState();
-      }
-      updateCellStats();
-      element.focus(); // Keep focus active
-    });
-  });
-}
-// Hint placement
-function provideHint() {
-  if (solveActive) return;
-  // 1. Choose targeted cell
-  let row = -1;
-  let col = -1;
-  // If user has focused an empty cell, use that.
-  if (selectedCell && boardGrid[selectedCell.row][selectedCell.col] === 0) {
-    row = selectedCell.row;
-    col = selectedCell.col;
-  } else {
-    // Find the first empty cell in standard reading order
-    const emptyCell = findEmpty(boardGrid);
-    if (emptyCell) {
-      row = emptyCell[0];
-      col = emptyCell[1];
-    }
-  }
-  if (row === -1 || col === -1) {
-    alert("No empty cells remaining to place a hint!");
+ 
+/* Keyboard input */
+document.addEventListener('keydown', e => {
+  if (State.solving) return;
+  const sel = State.selected;
+ 
+  // Arrow navigation
+  const arrows = {ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};
+  if (arrows[e.key]) {
+    e.preventDefault();
+    const [dr, dc] = arrows[e.key];
+    const r = sel ? Math.max(0,Math.min(8,sel.row+dr)) : 0;
+    const c = sel ? Math.max(0,Math.min(8,sel.col+dc)) : 0;
+    onCellClick(r, c);
     return;
   }
-  // 2. Fetch value from pre-solved solution grid
-  const correctVal = solvedSolution[row][col];
-  
-  // 3. Set value in grid
-  boardGrid[row][col] = correctVal;
-  
-  // 4. Highlight cell visually
-  const input = boardContainer.querySelector(`input[data-row="${row}"][data-col="${col}"]`);
-  if (input) {
-    input.value = correctVal;
-    input.parentElement.classList.add('cell-solved');
-    input.parentElement.classList.remove('cell-error', 'cell-user');
-    input.focus();
+ 
+  if (e.key === 'n' || e.key === 'N') {
+    State.noteMode = !State.noteMode;
+    toast(State.noteMode ? 'Note mode ON' : 'Note mode OFF', 'info');
+    return;
   }
-  hintsUsed++;
-  sounds.playHint();
-  
-  updateCellStats();
-  validateRealTime();
-  checkVictoryState();
-}
-// Grid manual validation check button
-function checkCurrentSolution() {
-  if (solveActive) return;
-  let hasErrors = false;
-  let emptyCells = 0;
-  
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      const val = boardGrid[r][c];
-      if (val === 0) {
-        emptyCells++;
-      } else {
-        // Compare with solution grid
-        if (val !== solvedSolution[r][c]) {
-          hasErrors = true;
-          // highlight wrong numbers
-          const input = boardContainer.querySelector(`input[data-row="${r}"][data-col="${c}"]`);
-          if (input && !input.parentElement.classList.contains('cell-initial')) {
-            input.parentElement.classList.add('cell-error');
-          }
-        }
-      }
-    }
-  }
-  if (hasErrors) {
-    alert("There are conflicts or incorrect numbers on the board. Incorrect cells have been highlighted.");
-    sounds.playError();
-  } else if (emptyCells > 0) {
-    alert(`Grid is clean so far! Keep going, you have ${emptyCells} empty cells left.`);
-    sounds.playHint();
-  } else {
-    // Board is fully correct
-    triggerVictory();
-  }
-}
-// Reset board to initial puzzle state
-function resetBoardToInitial() {
-  if (solveActive) return;
-  
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      boardGrid[r][c] = initialGrid[r][c];
-    }
-  }
-  renderBoardFromGrid();
-  sounds.playErase();
-}
-// Clear board completely (for custom manual entry solves)
-function clearWholeBoard() {
-  if (solveActive) return;
-  
-  if (confirm("Are you sure you want to clear the entire board? This will erase all clues and user values.")) {
-    boardGrid = Array(9).fill(null).map(() => Array(9).fill(0));
-    initialGrid = Array(9).fill(null).map(() => Array(9).fill(0));
-    solvedSolution = Array(9).fill(null).map(() => Array(9).fill(0));
-    
-    // Attempt solving empty board to establish custom solver target
-    // In custom mode, solvedSolution can be populated when clicking Check or Hint,
-    // we recalculate on Solve or Check.
-    
-    renderBoardFromGrid();
-    resetTimer();
-    stopTimer();
-    gameActive = false;
-    
-    currentDifficulty = "custom";
-    difficultyDisplay.textContent = "custom";
-    difficultyDisplay.className = "difficulty-tag diff-custom";
-    
-    sounds.playErase();
-  }
-}
-// Victory animations & details
-function checkVictoryState() {
-  // If no empty cells and no errors
-  let empty = 0;
-  let matchesSolution = true;
-  
-  for (let r = 0; r < 9; r++) {
-    for (let c = 0; c < 9; c++) {
-      const val = boardGrid[r][c];
-      if (val === 0) empty++;
-      
-      // If we generated the solution, check against it.
-      // If custom, verify grid validity.
-      if (solvedSolution[r][c] !== 0) {
-        if (val !== solvedSolution[r][c]) matchesSolution = false;
-      } else {
-        if (val === 0 || !isValid(boardGrid, r, c, val)) matchesSolution = false;
-      }
-    }
-  }
-  if (empty === 0 && matchesSolution) {
-    triggerVictory();
-  }
-}
-function triggerVictory() {
+ 
+  const num = e.key === 'Backspace' || e.key === 'Delete' ? 0
+            : (e.key >= '1' && e.key <= '9') ? +e.key : null;
+  if (num !== null) onNumInput(num);
+});
+ 
+/* ═══════════════════════════════════════════════
+   7. ACTIONS
+═══════════════════════════════════════════════ */
+ 
+function generatePuzzleAction() {
+  if (State.solving) return;
+  setStatus('Generating puzzle...');
   stopTimer();
-  sounds.playSuccess();
-  startConfetti();
-  
-  // Populate success details
-  successDifficulty.textContent = currentDifficulty;
-  successTime.textContent = timerDisplay.textContent;
-  successHints.textContent = hintsUsed;
-  
-  // Show Modal
+ 
+  // Use setTimeout to let UI paint
   setTimeout(() => {
-    successModal.classList.add('active');
-  }, 1000);
-}
-// ==========================================================================
-// 9. Timer & UI HUD State Controllers
-// ==========================================================================
-function startTimer() {
-  if (timerInterval) clearInterval(timerInterval);
-  timerInterval = setInterval(() => {
-    if (!timerPaused) {
-      gameTime++;
-      updateTimerDisplay();
+    const {puzzle, solution} = generatePuzzle(State.difficulty);
+ 
+    // Copy into state
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        State.board[r][c]    = puzzle[r][c];
+        State.solution[r][c] = solution[r][c];
+        State.given[r][c]    = puzzle[r][c] !== 0;
+        State.notes[r][c]    = new Set();
+      }
     }
-  }, 1000);
-  timerPlayPauseBtn.querySelector('i').className = 'fa-solid fa-pause';
-  timerPlayPauseBtn.title = "Pause Timer";
+ 
+    State.selected   = null;
+    State.hintsLeft  = 3;
+    State.errorCount = 0;
+    HintsLeft.textContent  = 3;
+    ErrorCount.textContent = 0;
+ 
+    renderBoard();
+    highlightSelection(null, null);
+    resetTimer();
+    startTimer();
+    setStatus(`${cap(State.difficulty)} puzzle generated. Good luck!`);
+    playSound('generate');
+  }, 30);
 }
-function stopTimer() {
-  if (timerInterval) {
-    clearInterval(timerInterval);
-    timerInterval = null;
+ 
+/**
+ * animatedSolve — Visualises the backtracking algorithm step by step
+ * Creates an async generator of solver steps, then renders them at speed
+ */
+async function animatedSolveAction() {
+  if (State.solving) return;
+  if (!isValidBoard(State.board)) { showError('Invalid Board', 'The current board has conflicts. Clear them before solving.'); return; }
+ 
+  State.solving = true;
+  $('solveBtn').disabled = true;
+  setStatus('🧠 Backtracking solver running...');
+ 
+  const boardCopy = State.board.map(r => [...r]);
+  const steps     = [];
+ 
+  // Collect all backtracking steps
+  function solveWithSteps(board) {
+    const empty = findEmpty(board);
+    if (!empty) return true;
+    const {row, col} = empty;
+    for (let num = 1; num <= 9; num++) {
+      if (isSafe(board, row, col, num)) {
+        board[row][col] = num;
+        steps.push({row, col, num, type: 'place'});
+        if (solveWithSteps(board)) return true;
+        board[row][col] = 0;
+        steps.push({row, col, num: 0, type: 'back'});
+      }
+    }
+    return false;
+  }
+ 
+  const hasSolution = solveWithSteps(boardCopy);
+ 
+  if (!hasSolution) {
+    State.solving = false;
+    $('solveBtn').disabled = false;
+    showError('No Solution', 'This puzzle cannot be solved. It may be invalid or have no valid arrangement.');
+    return;
+  }
+ 
+  if (!State.visualOn) {
+    // Instant solve
+    for (let r = 0; r < 9; r++)
+      for (let c = 0; c < 9; c++)
+        if (!State.given[r][c]) State.board[r][c] = boardCopy[r][c];
+    renderBoard();
+    finishSolve();
+    return;
+  }
+ 
+  // Speed → delay mapping
+  const delays = {1: 60, 2: 25, 3: 10, 4: 3, 5: 0};
+  const delay  = delays[State.solveSpeed] || 10;
+ 
+  for (const step of steps) {
+    const {row, col, num, type} = step;
+    if (State.given[row][col]) continue;
+    State.board[row][col] = num;
+    const cell = getCell(row, col);
+    cell.classList.remove('solving','backtrack','error');
+ 
+    if (num !== 0) {
+      cell.textContent = num;
+      cell.classList.add(type === 'back' ? 'backtrack' : 'solving');
+    } else {
+      cell.textContent = '';
+      cell.classList.add('backtrack');
+    }
+ 
+    if (delay > 0) await sleep(delay);
+    else if (steps.indexOf(step) % 200 === 0) await sleep(0); // yield to browser
+  }
+ 
+  // Clean up visuals
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++) {
+      const cell = getCell(r,c);
+      cell.classList.remove('solving','backtrack');
+      if (!State.given[r][c] && State.board[r][c] !== 0) {
+        cell.classList.add('user');
+        cell.classList.add('solve-animate');
+      }
+    }
+ 
+  finishSolve();
+}
+ 
+function finishSolve() {
+  State.solving = false;
+  $('solveBtn').disabled = false;
+  renderBoard();
+  stopTimer();
+  setStatus('✅ Solved by backtracking engine!');
+  playSound('win');
+  toast('Puzzle solved by the AI engine!', 'success');
+}
+ 
+function hintAction() {
+  if (State.solving) return;
+  if (State.hintsLeft <= 0) { toast('No hints remaining!', 'warn'); return; }
+ 
+  // Find an empty or incorrect cell
+  const empties = [];
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if (State.board[r][c] !== State.solution[r][c]) empties.push({r, c});
+ 
+  if (empties.length === 0) { toast('Board is already correct!', 'success'); return; }
+ 
+  const {r, c} = empties[Math.floor(Math.random() * empties.length)];
+  State.board[r][c] = State.solution[r][c];
+  State.given[r][c] = true; // lock it
+  State.notes[r][c].clear();
+ 
+  const cell = getCell(r, c);
+  cell.classList.add('hint');
+  renderCell(r, c);
+  setTimeout(() => cell.classList.remove('hint'), 1200);
+ 
+  State.hintsLeft--;
+  State.hintsUsed++;
+  State.totalHints++;
+  HintsLeft.textContent = State.hintsLeft;
+  updateStats();
+  playSound('hint');
+  setStatus(`💡 Hint placed at row ${r+1}, column ${c+1}`);
+ 
+  if (findEmpty(State.board) === null) checkWin();
+}
+ 
+function checkAction() {
+  if (State.solving) return;
+  let correct = true;
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      const val = State.board[r][c];
+      if (val === 0) continue;
+      if (val !== State.solution[r][c]) {
+        getCell(r,c).classList.add('error');
+        setTimeout(() => getCell(r,c).classList.remove('error'), 800);
+        correct = false;
+      }
+    }
+  }
+  if (correct && findEmpty(State.board) === null) checkWin();
+  else if (correct) { toast('All filled cells are correct so far!', 'success'); playSound('correct'); }
+  else { toast('Some cells are incorrect. Keep trying!', 'warn'); playSound('error'); }
+}
+ 
+function resetAction() {
+  if (State.solving) return;
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++) {
+      if (!State.given[r][c]) {
+        State.board[r][c] = 0;
+        State.notes[r][c].clear();
+      }
+    }
+  State.errorCount = 0;
+  ErrorCount.textContent = 0;
+  renderBoard();
+  highlightSelection(null, null);
+  State.selected = null;
+  setStatus('Board reset. Keep solving!');
+  toast('Board cleared!', 'info');
+}
+ 
+/* ═══════════════════════════════════════════════
+   8. WIN CONDITION
+═══════════════════════════════════════════════ */
+ 
+function checkWin() {
+  // Verify all cells match solution
+  for (let r = 0; r < 9; r++)
+    for (let c = 0; c < 9; c++)
+      if (State.board[r][c] !== State.solution[r][c]) return;
+ 
+  stopTimer();
+  State.totalSolved++;
+  if (State.timerSecs < State.bestTime) State.bestTime = State.timerSecs;
+  updateStats();
+ 
+  WinTime.textContent   = formatTime(State.timerSecs);
+  WinHints.textContent  = State.hintsUsed;
+  WinErrors.textContent = State.errorCount;
+ 
+  playSound('win');
+  launchConfetti();
+  WinModal.classList.add('active');
+}
+ 
+function launchConfetti() {
+  const container = $('confetti');
+  container.innerHTML = '';
+  const colors = ['#6c63ff','#00d4aa','#f1c40f','#e74c3c','#ff6b9d','#2ecc71'];
+  for (let i = 0; i < 40; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.cssText = `
+      left: ${Math.random()*100}%;
+      top: -10px;
+      background: ${colors[i%colors.length]};
+      --dx: ${(Math.random()-0.5)*200}px;
+      animation-delay: ${Math.random()*0.8}s;
+      animation-duration: ${1.5+Math.random()}s;
+      transform: rotate(${Math.random()*360}deg);
+    `;
+    container.appendChild(p);
   }
 }
+ 
+/* ═══════════════════════════════════════════════
+   9. TIMER
+═══════════════════════════════════════════════ */
+ 
+function startTimer() {
+  if (State.timerActive) return;
+  State.timerActive = true;
+  State.timerHandle = setInterval(() => {
+    State.timerSecs++;
+    TimerDisplay.textContent = formatTime(State.timerSecs);
+  }, 1000);
+}
+ 
+function stopTimer() {
+  State.timerActive = false;
+  clearInterval(State.timerHandle);
+}
+ 
 function resetTimer() {
   stopTimer();
-  gameTime = 0;
-  updateTimerDisplay();
+  State.timerSecs = 0;
+  TimerDisplay.textContent = '00:00';
 }
-function updateTimerDisplay() {
-  const mins = Math.floor(gameTime / 60);
-  const secs = gameTime % 60;
-  timerDisplay.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+ 
+function formatTime(secs) {
+  const m = String(Math.floor(secs / 60)).padStart(2,'0');
+  const s = String(secs % 60).padStart(2,'0');
+  return `${m}:${s}`;
 }
-function toggleTimerPause() {
-  if (!gameActive) return;
-  timerPaused = !timerPaused;
-  
-  const inputs = boardContainer.querySelectorAll('input');
-  
-  if (timerPaused) {
-    timerPlayPauseBtn.querySelector('i').className = 'fa-solid fa-play';
-    timerPlayPauseBtn.title = "Resume Timer";
-    // Overlay board cells with blur or hide inputs to prevent cheating
-    boardContainer.style.filter = 'blur(10px)';
-    boardContainer.style.pointerEvents = 'none';
-  } else {
-    timerPlayPauseBtn.querySelector('i').className = 'fa-solid fa-pause';
-    timerPlayPauseBtn.title = "Pause Timer";
-    boardContainer.style.filter = 'none';
-    boardContainer.style.pointerEvents = 'auto';
+ 
+/* ═══════════════════════════════════════════════
+   10. SOUND ENGINE (Web Audio API)
+═══════════════════════════════════════════════ */
+ 
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+ 
+function playSound(type) {
+  if (!State.soundOn) return;
+  try {
+    const ctx = getAudio();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+ 
+    const sounds = {
+      place:    { freq: 440, type: 'sine',   dur: 0.08, vol: 0.15 },
+      error:    { freq: 150, type: 'square', dur: 0.15, vol: 0.2  },
+      hint:     { freq: 660, type: 'sine',   dur: 0.2,  vol: 0.18 },
+      correct:  { freq: 550, type: 'sine',   dur: 0.25, vol: 0.2  },
+      generate: { freq: 320, type: 'sine',   dur: 0.15, vol: 0.15 },
+      win:      { freq: 880, type: 'sine',   dur: 0.5,  vol: 0.25 },
+    };
+    const s = sounds[type] || sounds.place;
+    osc.type = s.type;
+    osc.frequency.setValueAtTime(s.freq, ctx.currentTime);
+    if (type === 'win') {
+      osc.frequency.exponentialRampToValueAtTime(s.freq*2, ctx.currentTime+0.3);
+    }
+    gain.gain.setValueAtTime(s.vol, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + s.dur);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + s.dur + 0.01);
+  } catch(e) { /* silence audio errors */ }
+}
+ 
+/* ═══════════════════════════════════════════════
+   11. TOAST NOTIFICATIONS
+═══════════════════════════════════════════════ */
+ 
+function toast(msg, type = 'info') {
+  const tc = $('toastContainer');
+  const t  = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  tc.appendChild(t);
+  setTimeout(() => t.remove(), 3200);
+}
+ 
+/* ═══════════════════════════════════════════════
+   12. MODALS
+═══════════════════════════════════════════════ */
+ 
+function showError(title, body) {
+  $('errorTitle').textContent = title;
+  $('errorBody').textContent  = body;
+  ErrorModal.classList.add('active');
+}
+ 
+/* ═══════════════════════════════════════════════
+   13. STATUS & STATS
+═══════════════════════════════════════════════ */
+ 
+function setStatus(msg) { StatusMsg.textContent = msg; }
+ 
+function updateStats() {
+  StatSolved.textContent = State.totalSolved;
+  StatBest.textContent   = State.bestTime === Infinity ? '—' : formatTime(State.bestTime);
+  StatHints.textContent  = State.totalHints;
+  StatErrors.textContent = State.totalErrors;
+  ErrorCount.textContent = State.errorCount;
+}
+ 
+/* ═══════════════════════════════════════════════
+   14. UTILITIES
+═══════════════════════════════════════════════ */
+ 
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+ 
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function cap(s)    { return s.charAt(0).toUpperCase() + s.slice(1); }
+ 
+/* ═══════════════════════════════════════════════
+   15. AMBIENT PARTICLES (decorative)
+═══════════════════════════════════════════════ */
+ 
+function initParticles() {
+  const ambient = $('ambient');
+  for (let i = 0; i < 15; i++) {
+    const p = document.createElement('div');
+    const size = 2 + Math.random() * 3;
+    p.style.cssText = `
+      position: absolute;
+      width: ${size}px; height: ${size}px;
+      background: rgba(108,99,255,${0.1 + Math.random()*0.2});
+      border-radius: 50%;
+      left: ${Math.random()*100}%;
+      top: ${Math.random()*100}%;
+      animation: drift${Math.random()>0.5?1:2} ${10+Math.random()*15}s ease-in-out infinite alternate;
+      animation-delay: -${Math.random()*10}s;
+    `;
+    ambient.appendChild(p);
   }
 }
-// Pane Tabs Switcher logic
-function setupTabEvents() {
-  tabPlay.addEventListener('click', () => {
-    tabPlay.classList.add('active');
-    tabSolve.classList.remove('active');
-    panePlay.classList.add('active');
-    paneSolve.classList.remove('active');
+ 
+/* ═══════════════════════════════════════════════
+   16. BOOT — WIRE UP ALL EVENTS
+═══════════════════════════════════════════════ */
+ 
+function init() {
+  initBoard();
+  initParticles();
+ 
+  // Difficulty
+  document.querySelectorAll('.diff-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      State.difficulty = btn.dataset.diff;
+      toast(`Difficulty set to ${cap(State.difficulty)}`, 'info');
+    });
   });
-  tabSolve.addEventListener('click', () => {
-    tabSolve.classList.add('active');
-    tabPlay.classList.remove('active');
-    paneSolve.classList.add('active');
-    panePlay.classList.remove('active');
-    
-    // If board solution was not pre-calculated (like in custom cleared mode),
-    // calculate a backup solution now.
-    if (solvedSolution[0][0] === 0) {
-      const backupGrid = boardGrid.map(row => [...row]);
-      solveSudoku(backupGrid);
-      solvedSolution = backupGrid;
-    }
+ 
+  // Numpad
+  document.querySelectorAll('.num-btn').forEach(btn => {
+    btn.addEventListener('click', () => onNumInput(+btn.dataset.num));
   });
+ 
+  // Action buttons
+  $('generateBtn').addEventListener('click', generatePuzzleAction);
+  $('solveBtn').addEventListener('click',    animatedSolveAction);
+  $('hintBtn').addEventListener('click',     hintAction);
+  $('checkBtn').addEventListener('click',    checkAction);
+  $('resetBtn').addEventListener('click',    resetAction);
+ 
+  // Timer controls
+  $('timerStartBtn').addEventListener('click', () => {
+    if (State.timerActive) { stopTimer(); $('timerStartBtn').textContent = '▶ Start'; }
+    else { startTimer(); $('timerStartBtn').textContent = '⏸ Pause'; }
+  });
+  $('timerResetBtn').addEventListener('click', () => {
+    resetTimer(); $('timerStartBtn').textContent = '▶ Start';
+  });
+ 
+  // Theme toggle
+  $('themeToggle').addEventListener('click', () => {
+    const html  = document.documentElement;
+    const isDark = html.dataset.theme === 'dark';
+    html.dataset.theme = isDark ? 'light' : 'dark';
+    $('themeToggle').querySelector('.theme-icon').textContent = isDark ? '🌙' : '☀️';
+  });
+ 
+  // Sound toggle
+  $('soundToggle').addEventListener('change', e => {
+    State.soundOn = e.target.checked;
+  });
+ 
+  // Visualise toggle
+  $('visualToggle').addEventListener('change', e => {
+    State.visualOn = e.target.checked;
+  });
+ 
+  // Speed slider
+  $('speedSlider').addEventListener('input', e => {
+    State.solveSpeed = +e.target.value;
+    SpeedLabel.textContent = `${State.solveSpeed}×`;
+  });
+ 
+  // Win modal → new game
+  $('winNewGame').addEventListener('click', () => {
+    WinModal.classList.remove('active');
+    State.hintsUsed  = 0;
+    State.errorCount = 0;
+    generatePuzzleAction();
+  });
+ 
+  // Error modal close
+  $('errorClose').addEventListener('click', () => ErrorModal.classList.remove('active'));
+ 
+  // Dismiss modals on backdrop click
+  [WinModal, ErrorModal].forEach(m => {
+    m.addEventListener('click', e => {
+      if (e.target === m) m.classList.remove('active');
+    });
+  });
+ 
+  setStatus('Select a difficulty and press Generate!');
+  toast('Welcome to SudokuX!', 'info');
 }
-// Config switches: theme, sound
-function setupConfigSwitches() {
-  // Dark/Light Theme Toggle
-  themeToggleBtn.addEventListener('click', () => {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const targetTheme = currentTheme === 'light' ? 'dark' : 'light';
-    
-    document.documentElement.setAttribute('data-theme', targetTheme);
-    themeToggleBtn.querySelector('i').className = targetTheme === 'light' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
-    sounds.playClick();
-  });
-  // Sound effects toggle
-  soundToggleBtn.addEventListener('click', () => {
-    sounds.enabled = !sounds.enabled;
-    soundToggleBtn.querySelector('i').className = sounds.enabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
-    if (sounds.enabled) {
-      sounds.playClick();
-    }
-  });
-  // Info Modal toggle
-  infoToggleBtn.addEventListener('click', () => {
-    infoModal.classList.add('active');
-    sounds.playClick();
-  });
-  infoCloseBtn.addEventListener('click', () => {
-    infoModal.classList.remove('active');
-    sounds.playErase();
-  });
-  infoModal.addEventListener('click', (e) => {
-    if (e.target === infoModal) {
-      infoModal.classList.remove('active');
-      sounds.playErase();
-    }
-  });
-}
-// ==========================================================================
-// 10. Start Application Entrypoint
-// ==========================================================================
-function startApplication() {
-  // Initialize DOM structure
-  initBoardDOM();
-  setupKeypadEvents();
-  setupTabEvents();
-  setupConfigSwitches();
-  // Primary Gameplay Actions
-  generateBtn.addEventListener('click', () => {
-    generateNewPuzzle(difficultySelect.value);
-  });
-  hintBtn.addEventListener('click', provideHint);
-  checkBtn.addEventListener('click', checkCurrentSolution);
-  resetBtn.addEventListener('click', resetBoardToInitial);
-  clearBtn.addEventListener('click', clearWholeBoard);
-  timerPlayPauseBtn.addEventListener('click', toggleTimerPause);
-  // AI solver visual controls
-  solveVisualBtn.addEventListener('click', startVisualSolve);
-  solveInstantBtn.addEventListener('click', startInstantSolve);
-  
-  visPauseBtn.addEventListener('click', toggleVisualPause);
-  visStepBtn.addEventListener('click', stepVisualSolver);
-  visStopBtn.addEventListener('click', stopVisualSolver);
-  // Victory Dialog Reset Actions
-  successNewGameBtn.addEventListener('click', () => {
-    successModal.classList.remove('active');
-    stopConfetti();
-    generateNewPuzzle(difficultySelect.value);
-  });
-  // Initialize with a medium difficulty grid directly on load
-  generateNewPuzzle('medium');
-}
-// Let DOM content mount fully before firing script initialization
-document.addEventListener('DOMContentLoaded', startApplication);
+ 
+// Start the app
+document.addEventListener('DOMContentLoaded', init);
