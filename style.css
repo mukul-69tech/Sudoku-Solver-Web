@@ -1,93 +1,117 @@
+/* ==========================================================================
+   Sudoku Solver — Design System & Component Styles
+   Premium dark glassmorphism UI with full light-mode support.
+   ========================================================================== */
+
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
+/* --------------------------------------------------------------------------
+   CSS Custom Properties — Light Theme (default)
+   -------------------------------------------------------------------------- */
 :root {
-    --bg-gradient: linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
-    --card-bg: rgba(255, 255, 255, 0.45);
-    --card-border: rgba(255, 255, 255, 0.35);
-    --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
-    --text-color: #0f172a;
-    --text-secondary: #475569;
-    --text-light: #94a3b8;
-    
-    --accent-color: #6366f1;
-    --accent-hover: #4f46e5;
-    --accent-glow: rgba(99, 102, 241, 0.35);
-    
-    --btn-danger-bg: #ef4444;
-    --btn-danger-hover: #dc2626;
-    --btn-success-bg: #10b981;
-    --btn-success-hover: #059669;
-    
-    --cell-bg: rgba(255, 255, 255, 0.5);
-    --cell-border: rgba(99, 102, 241, 0.15);
-    --cell-border-thick: rgba(99, 102, 241, 0.6);
-    --cell-focus-bg: rgba(99, 102, 241, 0.2);
-    --cell-focus-border: #6366f1;
-    --cell-highlight-bg: rgba(99, 102, 241, 0.06);
-    --cell-same-num-bg: rgba(99, 102, 241, 0.3);
-    
-    --cell-original-text: #1e3a8a;
-    --cell-user-text: #4f46e5;
-    
-    --cell-error-bg: rgba(239, 68, 68, 0.15);
-    --cell-error-text: #ef4444;
-    
-    --cell-visual-try-bg: rgba(234, 179, 8, 0.25);
-    --cell-visual-try-text: #ca8a04;
-    
-    --cell-visual-backtrack-bg: rgba(239, 68, 68, 0.25);
-    --cell-visual-backtrack-text: #ef4444;
-    
-    --cell-visual-success-bg: rgba(16, 185, 129, 0.25);
+    /* Backgrounds */
+    --bg-gradient:        linear-gradient(135deg, #e0c3fc 0%, #8ec5fc 100%);
+    --card-bg:            rgba(255, 255, 255, 0.45);
+    --card-border:        rgba(255, 255, 255, 0.35);
+    --card-shadow:        0 8px 32px 0 rgba(31, 38, 135, 0.15);
+
+    /* Typography */
+    --text-color:         #0f172a;
+    --text-secondary:     #475569;
+    --text-light:         #94a3b8;
+    --font-primary:       'Outfit', sans-serif;
+    --font-mono:          'JetBrains Mono', monospace;
+
+    /* Accent / Brand */
+    --accent-color:       #6366f1;
+    --accent-hover:       #4f46e5;
+    --accent-glow:        rgba(99, 102, 241, 0.35);
+
+    /* Action buttons */
+    --btn-danger-bg:      #ef4444;
+    --btn-danger-hover:   #dc2626;
+    --btn-success-bg:     #10b981;
+    --btn-success-hover:  #059669;
+
+    /* Sudoku cell colours */
+    --cell-bg:              rgba(255, 255, 255, 0.6);
+    --cell-border:          rgba(99, 102, 241, 0.18);
+    --cell-border-thick:    rgba(99, 102, 241, 0.65);
+    --cell-focus-bg:        rgba(99, 102, 241, 0.18);
+    --cell-focus-border:    #6366f1;
+    --cell-highlight-bg:    rgba(99, 102, 241, 0.07);
+    --cell-same-num-bg:     rgba(99, 102, 241, 0.28);
+
+    /* Cell number colours */
+    --cell-original-text:   #1e3a8a;  /* Fixed clues — dark navy   */
+    --cell-user-text:       #4f46e5;  /* Player entries — indigo    */
+
+    /* Validation states */
+    --cell-error-bg:        rgba(239, 68, 68, 0.18);
+    --cell-error-text:      #dc2626;
+
+    /* Visualizer states */
+    --cell-visual-try-bg:       rgba(234, 179, 8, 0.28);
+    --cell-visual-try-text:     #b45309;
+    --cell-visual-backtrack-bg: rgba(239, 68, 68, 0.28);
+    --cell-visual-backtrack-text: #dc2626;
+    --cell-visual-success-bg:   rgba(16, 185, 129, 0.28);
     --cell-visual-success-text: #059669;
-    
-    --blur-strength: 16px;
-    --font-primary: 'Outfit', sans-serif;
-    --font-mono: 'JetBrains Mono', monospace;
-    --transition-speed: 0.3s;
+
+    --blur-strength:      16px;
+    --transition-speed:   0.3s;
 }
 
+/* --------------------------------------------------------------------------
+   CSS Custom Properties — Dark Theme
+   -------------------------------------------------------------------------- */
 [data-theme="dark"] {
-    --bg-gradient: linear-gradient(135deg, #090d16 0%, #111827 50%, #1e1b4b 100%);
-    --card-bg: rgba(15, 23, 42, 0.6);
-    --card-border: rgba(255, 255, 255, 0.08);
-    --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
-    --text-color: #f8fafc;
-    --text-secondary: #94a3b8;
-    --text-light: #64748b;
-    
-    --accent-color: #818cf8;
-    --accent-hover: #6366f1;
-    --accent-glow: rgba(129, 140, 248, 0.4);
-    
-    --cell-bg: rgba(15, 23, 42, 0.4);
-    --cell-border: rgba(129, 140, 248, 0.12);
-    --cell-border-thick: rgba(129, 140, 248, 0.6);
-    --cell-focus-bg: rgba(129, 140, 248, 0.22);
-    --cell-focus-border: #818cf8;
-    --cell-highlight-bg: rgba(129, 140, 248, 0.06);
-    --cell-same-num-bg: rgba(129, 140, 248, 0.35);
-    
-    --cell-original-text: #38bdf8;
-    --cell-user-text: #cbd5e1;
-    
-    --cell-error-bg: rgba(239, 68, 68, 0.2);
-    --cell-error-text: #fca5a5;
-    
-    --cell-visual-try-bg: rgba(234, 179, 8, 0.2);
-    --cell-visual-try-text: #fde047;
-    
-    --cell-visual-backtrack-bg: rgba(239, 68, 68, 0.22);
+    --bg-gradient:        linear-gradient(135deg, #090d16 0%, #111827 50%, #1e1b4b 100%);
+    --card-bg:            rgba(15, 23, 42, 0.65);
+    --card-border:        rgba(255, 255, 255, 0.09);
+    --card-shadow:        0 8px 32px 0 rgba(0, 0, 0, 0.5);
+
+    --text-color:         #f1f5f9;
+    --text-secondary:     #94a3b8;
+    --text-light:         #64748b;
+
+    --accent-color:       #818cf8;
+    --accent-hover:       #6366f1;
+    --accent-glow:        rgba(129, 140, 248, 0.4);
+
+    --cell-bg:              rgba(15, 23, 42, 0.45);
+    --cell-border:          rgba(129, 140, 248, 0.14);
+    --cell-border-thick:    rgba(129, 140, 248, 0.65);
+    --cell-focus-bg:        rgba(129, 140, 248, 0.22);
+    --cell-focus-border:    #818cf8;
+    --cell-highlight-bg:    rgba(129, 140, 248, 0.07);
+    --cell-same-num-bg:     rgba(129, 140, 248, 0.32);
+
+    --cell-original-text:   #38bdf8;   /* Fixed clues — sky blue   */
+    --cell-user-text:       #e2e8f0;   /* Player entries — light   */
+
+    --cell-error-bg:        rgba(239, 68, 68, 0.22);
+    --cell-error-text:      #fca5a5;
+
+    --cell-visual-try-bg:       rgba(234, 179, 8, 0.22);
+    --cell-visual-try-text:     #fde047;
+    --cell-visual-backtrack-bg: rgba(239, 68, 68, 0.24);
     --cell-visual-backtrack-text: #fca5a5;
-    
-    --cell-visual-success-bg: rgba(16, 185, 129, 0.22);
+    --cell-visual-success-bg:   rgba(16, 185, 129, 0.24);
     --cell-visual-success-text: #34d399;
 }
 
-* {
+/* --------------------------------------------------------------------------
+   Reset & Base
+   -------------------------------------------------------------------------- */
+*, *::before, *::after {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+}
+
+html {
+    height: 100%;
 }
 
 body {
@@ -98,14 +122,18 @@ body {
     min-height: 100vh;
     display: flex;
     justify-content: center;
-    align-items: center;
-    transition: background var(--transition-speed) ease, color var(--transition-speed) ease;
+    align-items: flex-start;   /* top-align so board is never off-screen */
     padding: 1.5rem;
+    transition: background var(--transition-speed) ease,
+                color var(--transition-speed) ease;
 }
 
+/* --------------------------------------------------------------------------
+   App Shell
+   -------------------------------------------------------------------------- */
 .app-container {
     width: 100%;
-    max-width: 1100px;
+    max-width: 1120px;
     background: var(--card-bg);
     backdrop-filter: blur(var(--blur-strength));
     -webkit-backdrop-filter: blur(var(--blur-strength));
@@ -118,6 +146,9 @@ body {
     gap: 1.5rem;
 }
 
+/* --------------------------------------------------------------------------
+   Header
+   -------------------------------------------------------------------------- */
 header {
     display: flex;
     justify-content: space-between;
@@ -135,6 +166,7 @@ header {
     background: linear-gradient(135deg, var(--text-color) 30%, var(--accent-color) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    background-clip: text;
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -143,6 +175,7 @@ header {
 .logo-section p {
     font-size: 0.85rem;
     color: var(--text-secondary);
+    margin-top: 0.15rem;
 }
 
 .header-controls {
@@ -151,25 +184,31 @@ header {
     gap: 0.75rem;
 }
 
+/* Timer pill */
 .timer-container {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    background: rgba(0, 0, 0, 0.05);
+    gap: 0.45rem;
+    background: rgba(0, 0, 0, 0.06);
     border: 1px solid var(--card-border);
-    padding: 0.4rem 0.8rem;
+    padding: 0.4rem 0.85rem;
     border-radius: 30px;
     font-family: var(--font-mono);
     font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 0.05em;
 }
+
 [data-theme="dark"] .timer-container {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.06);
 }
 
 .timer-icon {
-    animation: pulse 2s infinite;
+    animation: pulse 2s ease-in-out infinite;
+    color: var(--accent-color);
 }
 
+/* Icon buttons (theme / sound toggles) */
 .btn-icon {
     background: rgba(255, 255, 255, 0.2);
     border: 1px solid var(--card-border);
@@ -181,28 +220,36 @@ header {
     justify-content: center;
     align-items: center;
     color: var(--text-color);
-    transition: all var(--transition-speed) ease;
+    transition: background var(--transition-speed) ease,
+                transform var(--transition-speed) ease;
+    flex-shrink: 0;
 }
 
 .btn-icon:hover {
     background: var(--accent-color);
     color: white;
-    transform: translateY(-2px);
+    transform: translateY(-2px) rotate(8deg);
 }
 
+/* --------------------------------------------------------------------------
+   Main Layout — sidebar + board
+   -------------------------------------------------------------------------- */
 .main-layout {
     display: grid;
-    grid-template-columns: 320px 1fr;
+    grid-template-columns: 310px 1fr;
     gap: 2rem;
     align-items: start;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 920px) {
     .main-layout {
         grid-template-columns: 1fr;
     }
 }
 
+/* --------------------------------------------------------------------------
+   Sidebar Controls
+   -------------------------------------------------------------------------- */
 .control-sidebar {
     display: flex;
     flex-direction: column;
@@ -218,8 +265,9 @@ header {
     flex-direction: column;
     gap: 1rem;
 }
+
 [data-theme="dark"] .control-card {
-    background: rgba(30, 41, 59, 0.3);
+    background: rgba(30, 41, 59, 0.32);
 }
 
 .control-group {
@@ -229,37 +277,44 @@ header {
 }
 
 .control-group label {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 700;
     text-transform: uppercase;
+    letter-spacing: 0.06em;
     color: var(--text-secondary);
 }
 
+/* Select dropdown */
 .select-input {
     width: 100%;
-    padding: 0.6rem 1rem;
+    padding: 0.65rem 1rem;
     border-radius: 10px;
     border: 1px solid var(--card-border);
-    background: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.65);
     color: var(--text-color);
+    font-family: var(--font-primary);
     font-weight: 600;
+    font-size: 0.95rem;
     outline: none;
     cursor: pointer;
-}
-[data-theme="dark"] .select-input {
-    background: rgba(15, 23, 42, 0.7);
+    transition: border-color var(--transition-speed) ease;
 }
 
-.slider-container {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
+.select-input:focus {
+    border-color: var(--accent-color);
 }
+
+[data-theme="dark"] .select-input {
+    background: rgba(15, 23, 42, 0.75);
+}
+
+/* Speed Slider */
+.slider-container { gap: 0.35rem; }
 
 .slider-labels {
     display: flex;
     justify-content: space-between;
-    font-size: 0.75rem;
+    font-size: 0.73rem;
     color: var(--text-secondary);
     font-weight: 600;
 }
@@ -272,6 +327,7 @@ header {
     border-radius: 3px;
     background: var(--text-light);
     outline: none;
+    cursor: pointer;
 }
 
 .slider::-webkit-slider-thumb {
@@ -282,20 +338,28 @@ header {
     border-radius: 50%;
     background: var(--accent-color);
     cursor: pointer;
+    box-shadow: 0 0 6px var(--accent-glow);
+    transition: transform 0.15s ease;
 }
 
+.slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+
+/* Toggle switch */
 .switch-container {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 0.75rem;
 }
 
+.switch-label-desc { flex: 1; }
 .switch-label-desc .title {
     font-size: 0.9rem;
     font-weight: 600;
+    display: block;
 }
 .switch-label-desc .desc {
-    font-size: 0.75rem;
+    font-size: 0.74rem;
     color: var(--text-secondary);
 }
 
@@ -304,46 +368,38 @@ header {
     display: inline-block;
     width: 46px;
     height: 24px;
+    flex-shrink: 0;
 }
 
-.switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
+.switch input { opacity: 0; width: 0; height: 0; }
 
 .slider-toggle {
     position: absolute;
     cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     background-color: var(--text-light);
-    transition: .4s;
+    transition: background-color 0.35s ease;
     border-radius: 34px;
 }
 
-.slider-toggle:before {
-    position: absolute;
+.slider-toggle::before {
     content: "";
+    position: absolute;
     height: 18px;
     width: 18px;
     left: 3px;
     bottom: 3px;
     background-color: white;
-    transition: .4s;
     border-radius: 50%;
+    transition: transform 0.35s ease;
 }
 
-input:checked + .slider-toggle {
-    background-color: var(--accent-color);
-}
+input:checked + .slider-toggle               { background-color: var(--accent-color); }
+input:checked + .slider-toggle::before       { transform: translateX(22px); }
 
-input:checked + .slider-toggle:before {
-    transform: translateX(22px);
-}
-
+/* --------------------------------------------------------------------------
+   Buttons
+   -------------------------------------------------------------------------- */
 .btn {
     display: inline-flex;
     justify-content: center;
@@ -353,270 +409,336 @@ input:checked + .slider-toggle:before {
     border-radius: 12px;
     font-family: var(--font-primary);
     font-weight: 700;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
     border: none;
     cursor: pointer;
-    transition: all var(--transition-speed) ease;
+    transition: background var(--transition-speed) ease,
+                transform 0.15s ease,
+                box-shadow 0.15s ease;
+    width: 100%;
 }
 
 .btn-primary {
     background: var(--accent-color);
     color: white;
+    box-shadow: 0 4px 14px var(--accent-glow);
 }
 .btn-primary:hover {
     background: var(--accent-hover);
     transform: translateY(-2px);
+    box-shadow: 0 6px 18px var(--accent-glow);
 }
 
 .btn-secondary {
-    background: rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.22);
     border: 1px solid var(--card-border);
     color: var(--text-color);
 }
 .btn-secondary:hover {
-    background: rgba(255,255,255,0.35);
+    background: rgba(255,255,255,0.36);
+    transform: translateY(-1px);
 }
+[data-theme="dark"] .btn-secondary { background: rgba(30,41,59,0.4); }
+[data-theme="dark"] .btn-secondary:hover { background: rgba(30,41,59,0.65); }
 
-.btn-danger {
-    background: var(--btn-danger-bg);
-    color: white;
-}
-.btn-danger:hover {
-    background: var(--btn-danger-hover);
-}
+.btn-danger  { background: var(--btn-danger-bg);  color: white; }
+.btn-danger:hover  { background: var(--btn-danger-hover);  transform: translateY(-2px); }
 
-.btn-success {
-    background: var(--btn-success-bg);
-    color: white;
-}
-.btn-success:hover {
-    background: var(--btn-success-hover);
-}
+.btn-success { background: var(--btn-success-bg); color: white; }
+.btn-success:hover { background: var(--btn-success-hover); transform: translateY(-2px); }
 
 .btn:disabled {
-    opacity: 0.5;
+    opacity: 0.45;
     cursor: not-allowed;
     transform: none !important;
+    box-shadow: none !important;
 }
 
+/* --------------------------------------------------------------------------
+   Board Area
+   -------------------------------------------------------------------------- */
 .board-container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 1.5rem;
+    gap: 1.25rem;
+    width: 100%;
 }
 
+/* The Sudoku grid itself */
 .sudoku-board {
     display: grid;
     grid-template-columns: repeat(9, 1fr);
     grid-template-rows: repeat(9, 1fr);
+
+    /* Guarantee a visible fixed square even before CSS resolves aspect-ratio */
+    width: min(100%, 480px);
+    height: min(100vw - 3rem, 480px);
+
     aspect-ratio: 1 / 1;
-    width: 100%;
-    max-width: 480px;
-    background: var(--card-border);
+
+    background: var(--cell-border-thick);  /* Gap colour between boxes */
     border: 3px solid var(--cell-border-thick);
     border-radius: 12px;
     overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+    gap: 0;
 }
 
+/* Individual cells */
 .sudoku-cell {
-    aspect-ratio: 1 / 1;
     display: flex;
     justify-content: center;
     align-items: center;
     background: var(--cell-bg);
-    border: 1px solid var(--cell-border);
+    border-right:  1px solid var(--cell-border);
+    border-bottom: 1px solid var(--cell-border);
     font-family: var(--font-mono);
-    font-size: clamp(1.1rem, 4.5vw, 1.8rem);
+
+    /* Fluid font that fits small screens */
+    font-size: clamp(0.95rem, 3.8vw, 1.65rem);
     font-weight: 700;
     color: var(--cell-user-text);
     cursor: pointer;
     user-select: none;
     outline: none;
-    transition: background-color 0.15s ease, color 0.15s ease;
+    transition: background-color 0.12s ease, color 0.12s ease, transform 0.1s ease;
+    position: relative;
 }
 
-.sudoku-cell:nth-child(3n) {
-    border-right: 3px solid var(--cell-border-thick);
+/* Remove right/bottom border on last column / last row to avoid double-border at edge */
+.sudoku-cell:nth-child(9n)   { border-right: none; }
+
+/* Thick box separators — right border after columns 3 and 6 */
+.sudoku-cell:nth-child(3n):not(:nth-child(9n)) {
+    border-right: 2px solid var(--cell-border-thick);
 }
-.sudoku-cell:nth-child(9n) {
-    border-right: none;
-}
+
+/* Thick box separators — bottom border after rows 3 and 6 */
+/* Cells 19–27 (row 3) and 46–54 (row 6) */
 .sudoku-cell:nth-child(n+19):nth-child(-n+27),
 .sudoku-cell:nth-child(n+46):nth-child(-n+54) {
-    border-bottom: 3px solid var(--cell-border-thick);
+    border-bottom: 2px solid var(--cell-border-thick);
 }
 
+/* Fixed (given) clue cells */
 .sudoku-cell.original {
     color: var(--cell-original-text);
     font-weight: 800;
     cursor: not-allowed;
+    background: color-mix(in srgb, var(--cell-bg) 100%, var(--cell-original-text) 4%);
 }
 
+/* Hover — only for editable cells */
 .sudoku-cell:hover:not(.original) {
     background: var(--cell-focus-bg);
 }
 
+/* Selected cell */
 .sudoku-cell.selected {
-    box-shadow: inset 0 0 0 3px var(--cell-focus-border);
-    z-index: 10;
-    transform: scale(1.05);
     background: var(--cell-focus-bg) !important;
+    box-shadow: inset 0 0 0 2.5px var(--cell-focus-border);
+    z-index: 5;
+    transform: scale(1.04);
 }
 
+/* Row / column / box highlight */
 .sudoku-cell.highlighted {
     background: var(--cell-highlight-bg);
 }
 
+/* Same digit highlight */
 .sudoku-cell.same-number {
     background: var(--cell-same-num-bg);
 }
 
+/* Conflict / error */
 .sudoku-cell.error {
-    background: var(--cell-error-bg);
-    color: var(--cell-error-text);
-    animation: shake 0.4s ease-in-out;
+    background: var(--cell-error-bg) !important;
+    color: var(--cell-error-text) !important;
+    animation: shake 0.38s ease-in-out;
 }
 
+/* Visualizer — trying a number */
 .sudoku-cell.visual-try {
     background: var(--cell-visual-try-bg) !important;
-    color: var(--cell-visual-try-text);
+    color: var(--cell-visual-try-text) !important;
 }
 
+/* Visualizer — backtracking */
 .sudoku-cell.visual-backtrack {
     background: var(--cell-visual-backtrack-bg) !important;
-    color: var(--cell-visual-backtrack-text);
+    color: var(--cell-visual-backtrack-text) !important;
     animation: blink-red 0.15s ease;
 }
 
+/* Visualizer — confirmed correct */
 .sudoku-cell.visual-success {
     background: var(--cell-visual-success-bg) !important;
-    color: var(--cell-visual-success-text);
+    color: var(--cell-visual-success-text) !important;
 }
 
+/* Rejected input on a fixed cell */
+.sudoku-cell.shake-reject {
+    animation: shake 0.38s ease-in-out;
+}
+
+/* --------------------------------------------------------------------------
+   Action Grid (Reset / Clear / Check)
+   -------------------------------------------------------------------------- */
 .action-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 0.75rem;
-    width: 100%;
-    max-width: 480px;
+    width: min(100%, 480px);
 }
 
+.action-grid .btn { font-size: 0.85rem; padding: 0.65rem 0.75rem; }
+
+/* --------------------------------------------------------------------------
+   Virtual Numpad
+   -------------------------------------------------------------------------- */
 .numpad {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: 0.5rem;
-    width: 100%;
-    max-width: 480px;
-    background: rgba(255,255,255,0.15);
+    width: min(100%, 480px);
+    background: rgba(255, 255, 255, 0.15);
     border: 1px solid var(--card-border);
     border-radius: 16px;
     padding: 0.75rem;
 }
+
 [data-theme="dark"] .numpad {
-    background: rgba(15, 23, 42, 0.4);
+    background: rgba(15, 23, 42, 0.42);
 }
 
 .numpad-btn {
-    aspect-ratio: 1.3 / 1;
+    aspect-ratio: 1.25 / 1;
     background: var(--cell-bg);
     border: 1px solid var(--card-border);
-    border-radius: 8px;
+    border-radius: 10px;
     color: var(--text-color);
     font-family: var(--font-mono);
-    font-size: 1.2rem;
+    font-size: 1.15rem;
     font-weight: 700;
     cursor: pointer;
     display: flex;
     justify-content: center;
     align-items: center;
+    transition: background var(--transition-speed) ease,
+                transform 0.12s ease;
 }
 
 .numpad-btn:hover {
     background: var(--accent-color);
     color: white;
+    transform: scale(1.06);
 }
+
+.numpad-btn:active { transform: scale(0.96); }
 
 .numpad-btn.erase-btn {
     background: rgba(239, 68, 68, 0.1);
     color: var(--btn-danger-bg);
+    border-color: rgba(239, 68, 68, 0.2);
 }
 .numpad-btn.erase-btn:hover {
     background: var(--btn-danger-bg);
     color: white;
 }
 
+/* --------------------------------------------------------------------------
+   Status Panel
+   -------------------------------------------------------------------------- */
 .status-panel {
-    width: 100%;
-    max-width: 480px;
+    width: min(100%, 480px);
     min-height: 52px;
     border-radius: 12px;
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.22);
     border: 1px solid var(--card-border);
     padding: 0.75rem 1rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 0.5rem;
 }
+
 [data-theme="dark"] .status-panel {
-    background: rgba(30, 41, 59, 0.25);
+    background: rgba(30, 41, 59, 0.28);
 }
 
 .status-text {
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     font-weight: 600;
+    flex: 1;
 }
 
 .status-badge {
-    padding: 0.25rem 0.6rem;
+    padding: 0.25rem 0.65rem;
     border-radius: 6px;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     font-weight: 700;
     text-transform: uppercase;
-}
-.status-badge.info {
-    background: rgba(99, 102, 241, 0.15);
-    color: var(--accent-color);
-}
-.status-badge.error {
-    background: rgba(239, 68, 68, 0.15);
-    color: #ef4444;
-}
-.status-badge.success {
-    background: rgba(16, 185, 129, 0.15);
-    color: #10b981;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-4px); }
-    75% { transform: translateX(4px); }
-}
+.status-badge.info    { background: rgba(99,102,241,0.15);  color: var(--accent-color); }
+.status-badge.error   { background: rgba(239,68,68,0.15);   color: #ef4444; }
+.status-badge.success { background: rgba(16,185,129,0.15);  color: #10b981; }
 
-@keyframes pulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.15); opacity: 0.7; }
-    100% { transform: scale(1); opacity: 1; }
-}
-
-@keyframes blink-red {
-    0% { background-color: var(--cell-visual-backtrack-bg); }
-    100% { background-color: var(--cell-bg); }
-}
-
-@keyframes cell-win-bounce {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.08); background-color: var(--cell-visual-success-bg); }
-}
-
-.cell-win {
-    animation: cell-win-bounce 0.6s ease-in-out;
-}
-
+/* --------------------------------------------------------------------------
+   Footer
+   -------------------------------------------------------------------------- */
 footer {
     text-align: center;
     font-size: 0.8rem;
     color: var(--text-light);
     border-top: 1px solid var(--card-border);
     padding-top: 1rem;
+    line-height: 1.6;
 }
+
+/* --------------------------------------------------------------------------
+   Animations & Keyframes
+   -------------------------------------------------------------------------- */
+
+/* Shake on conflict or locked-cell attempt */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%       { transform: translateX(-5px); }
+    40%       { transform: translateX(5px); }
+    60%       { transform: translateX(-4px); }
+    80%       { transform: translateX(4px); }
+}
+
+/* Pulse for the timer icon */
+@keyframes pulse {
+    0%, 100% { transform: scale(1);    opacity: 1;   }
+    50%       { transform: scale(1.18); opacity: 0.65; }
+}
+
+/* Backtrack flash */
+@keyframes blink-red {
+    from { background-color: var(--cell-visual-backtrack-bg); }
+    to   { background-color: var(--cell-bg); }
+}
+
+/* Win celebration bounce on each cell */
+@keyframes cell-win-bounce {
+    0%, 100% { transform: scale(1);    }
+    40%       { transform: scale(1.1);
+                background: var(--cell-visual-success-bg); }
+}
+
+.cell-win { animation: cell-win-bounce 0.55s ease-in-out; }
+
+/* Subtle fade-in for the whole board on load */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.sudoku-board { animation: fadeInUp 0.4s ease-out both; }
